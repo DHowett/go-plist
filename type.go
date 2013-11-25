@@ -54,7 +54,7 @@ var (
 	textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
 )
 
-func stringMarshalableToPlistValue(marshalable encoding.TextMarshaler) (*plistValue, error) {
+func (p *Encoder) marshalTextInterface(marshalable encoding.TextMarshaler) (*plistValue, error) {
 	s, err := marshalable.MarshalText()
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func stringMarshalableToPlistValue(marshalable encoding.TextMarshaler) (*plistVa
 	return &plistValue{String, s}, nil
 }
 
-func structToPlistValue(typ reflect.Type, val reflect.Value) (*plistValue, error) {
+func (p *Encoder) marshalStruct(typ reflect.Type, val reflect.Value) (*plistValue, error) {
 	tinfo, _ := getTypeInfo(typ)
 
 	subvalues := make(map[string]*plistValue, len(tinfo.fields))
@@ -71,7 +71,7 @@ func structToPlistValue(typ reflect.Type, val reflect.Value) (*plistValue, error
 		if !value.IsValid() || finfo.omitEmpty && isEmptyValue(value) {
 			continue
 		}
-		v, err := valueToPlistValue(value)
+		v, err := p.marshal(value)
 		if err != nil {
 			return nil, err
 		}
@@ -82,7 +82,7 @@ func structToPlistValue(typ reflect.Type, val reflect.Value) (*plistValue, error
 	return &plistValue{Dictionary, subvalues}, nil
 }
 
-func valueToPlistValue(val reflect.Value) (*plistValue, error) {
+func (p *Encoder) marshal(val reflect.Value) (*plistValue, error) {
 	typ := val.Type()
 
 	if !val.IsValid() {
@@ -91,26 +91,26 @@ func valueToPlistValue(val reflect.Value) (*plistValue, error) {
 
 	// Check for text marshaler.
 	if val.CanInterface() && typ.Implements(textMarshalerType) {
-		return stringMarshalableToPlistValue(val.Interface().(encoding.TextMarshaler))
+		return p.marshalTextInterface(val.Interface().(encoding.TextMarshaler))
 	}
 	if val.CanAddr() {
 		pv := val.Addr()
 		if pv.CanInterface() && pv.Type().Implements(textMarshalerType) {
-			return stringMarshalableToPlistValue(pv.Interface().(encoding.TextMarshaler))
+			return p.marshalTextInterface(pv.Interface().(encoding.TextMarshaler))
 		}
 	}
 
 	// Descend into pointers or interfaces
-	if typ.Kind() == reflect.Ptr || typ.Kind() == reflect.Interface {
+	if val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface {
 		val = val.Elem()
 		typ = val.Type()
 	}
 
-	if typ.Kind() == reflect.Struct {
-		return structToPlistValue(typ, val)
+	if val.Kind() == reflect.Struct {
+		return p.marshalStruct(typ, val)
 	}
 
-	switch typ.Kind() {
+	switch val.Kind() {
 	case reflect.String:
 		return &plistValue{String, val.String()}, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -134,7 +134,7 @@ func valueToPlistValue(val reflect.Value) (*plistValue, error) {
 		} else {
 			subvalues := make([]*plistValue, val.Len())
 			for idx, length := 0, val.Len(); idx < length; idx++ {
-				v, err := valueToPlistValue(val.Index(idx))
+				v, err := p.marshal(val.Index(idx))
 				if err != nil {
 					return nil, err
 				}
@@ -149,7 +149,7 @@ func valueToPlistValue(val reflect.Value) (*plistValue, error) {
 
 		subvalues := make(map[string]*plistValue, val.Len())
 		for _, keyv := range val.MapKeys() {
-			v, err := valueToPlistValue(val.MapIndex(keyv))
+			v, err := p.marshal(val.MapIndex(keyv))
 			if err != nil {
 				return nil, err
 			}
