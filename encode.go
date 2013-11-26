@@ -15,20 +15,12 @@ type Encoder struct {
 	valueEncoder plistValueEncoder
 }
 
-func (p *Encoder) EncodeDocument(v interface{}) error {
-	pv, err := p.marshal(reflect.ValueOf(v))
-	if err != nil {
-		return err
-	}
-	return p.valueEncoder.encodeDocument(pv)
-}
-
 func (p *Encoder) Encode(v interface{}) error {
 	pv, err := p.marshal(reflect.ValueOf(v))
 	if err != nil {
 		return err
 	}
-	return p.valueEncoder.encodePlistValue(pv)
+	return p.valueEncoder.encodeDocument(pv)
 }
 
 func NewEncoder(w io.Writer) *Encoder {

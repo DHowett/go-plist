@@ -13,7 +13,7 @@ type Decoder struct {
 	valueDecoder plistValueDecoder
 }
 
-func (p *Decoder) DecodeDocument(v interface{}) error {
+func (p *Decoder) Decode(v interface{}) error {
 	plistVal, err := p.valueDecoder.decodeDocument()
 	if err != nil {
 		return err
