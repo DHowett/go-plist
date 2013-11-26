@@ -5,8 +5,6 @@ import (
 	"reflect"
 )
 
-const DOCTYPE = `DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"`
-
 type plistValueEncoder interface {
 	encodeDocument(*plistValue) error
 	encodePlistValue(*plistValue) error

@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const xmlDOCTYPE = `DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"`
+
 type xmlPlistValueEncoder struct {
 	writer     io.Writer
 	xmlEncoder *xml.Encoder
@@ -16,7 +18,7 @@ type xmlPlistValueEncoder struct {
 
 func (p *xmlPlistValueEncoder) encodeDocument(plistVal *plistValue) error {
 	p.writer.Write([]byte(xml.Header))
-	p.xmlEncoder.EncodeToken(xml.Directive(DOCTYPE))
+	p.xmlEncoder.EncodeToken(xml.Directive(xmlDOCTYPE))
 
 	plistStartElement := xml.StartElement{
 		Name: xml.Name{
