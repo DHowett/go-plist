@@ -3,6 +3,7 @@ package plist
 import (
 	"encoding"
 	"reflect"
+	"time"
 )
 
 func isEmptyValue(v reflect.Value) bool {
@@ -25,6 +26,7 @@ func isEmptyValue(v reflect.Value) bool {
 
 var (
 	textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	timeType          = reflect.TypeOf((*time.Time)(nil)).Elem()
 )
 
 func (p *Encoder) marshalTextInterface(marshalable encoding.TextMarshaler) (*plistValue, error) {
@@ -55,11 +57,21 @@ func (p *Encoder) marshalStruct(typ reflect.Type, val reflect.Value) (*plistValu
 	return &plistValue{Dictionary, subvalues}, nil
 }
 
+func (p *Encoder) marshalTime(val reflect.Value) (*plistValue, error) {
+	time := val.Interface().(time.Time)
+	return &plistValue{Date, time}, nil
+}
+
 func (p *Encoder) marshal(val reflect.Value) (*plistValue, error) {
 	typ := val.Type()
 
 	if !val.IsValid() {
 		return nil, nil
+	}
+
+	// time.Time implements TextMarshaler, but we need to store it in RFC3339
+	if val.Type() == timeType {
+		return p.marshalTime(val)
 	}
 
 	// Check for text marshaler.

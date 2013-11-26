@@ -13,6 +13,7 @@ const (
 	Real
 	Boolean
 	Data
+	Date
 )
 
 var plistKindNames map[plistKind]string = map[plistKind]string{
@@ -24,6 +25,7 @@ var plistKindNames map[plistKind]string = map[plistKind]string{
 	Real:       "real",
 	Boolean:    "boolean",
 	Data:       "data",
+	Date:       "date",
 }
 
 type plistValue struct {

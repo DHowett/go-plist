@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"fmt"
 	"reflect"
+	"time"
 )
 
 type IncompatibleDecodeTypeError struct {
@@ -25,6 +26,11 @@ func isEmptyInterface(v reflect.Value) bool {
 
 func (p *Decoder) unmarshalTextInterface(pval *plistValue, unmarshalable encoding.TextUnmarshaler) error {
 	return unmarshalable.UnmarshalText([]byte(pval.value.(string)))
+}
+
+func (p *Decoder) unmarshalTime(pval *plistValue, val reflect.Value) error {
+	val.Set(reflect.ValueOf(pval.value.(time.Time)))
+	return nil
 }
 
 func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
@@ -56,6 +62,17 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 		return nil
 	}
 
+	incompatibleTypeError := &IncompatibleDecodeTypeError{val.Type(), pval.kind}
+
+	// time.Time implements TextMarshaler, but we need to parse it as RFC3339
+	if pval.kind == Date {
+		if val.Type() == timeType {
+			return p.unmarshalTime(pval, val)
+		} else {
+			return incompatibleTypeError
+		}
+	}
+
 	if val.CanInterface() && val.Type().Implements(textUnmarshalerType) {
 		return p.unmarshalTextInterface(pval, val.Interface().(encoding.TextUnmarshaler))
 	}
@@ -69,7 +86,6 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 
 	typ := val.Type()
 
-	incompatibleTypeError := &IncompatibleDecodeTypeError{val.Type(), pval.kind}
 	switch pval.kind {
 	case String:
 		if val.Kind() == reflect.String {
@@ -203,6 +219,8 @@ func (p *Decoder) valueInterface(pval *plistValue) (interface{}, error) {
 		return p.mapInterface(pval.value.(map[string]*plistValue))
 	case Data:
 		return pval.value.([]byte), nil
+	case Date:
+		return pval.value.(time.Time), nil
 	default:
 		return nil, fmt.Errorf("Unknown plist type %v", plistKindNames[pval.kind])
 	}

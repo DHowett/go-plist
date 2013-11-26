@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"strconv"
+	"time"
 )
 
 type xmlPlistValueEncoder struct {
@@ -77,6 +78,9 @@ func (p *xmlPlistValueEncoder) encodePlistValue(plistVal *plistValue) error {
 	case Data:
 		key = "data"
 		encodedValue = xml.CharData(base64.StdEncoding.EncodeToString(plistVal.value.([]byte)))
+	case Date:
+		key = "date"
+		encodedValue = plistVal.value.(time.Time).Format(time.RFC3339)
 	}
 	if key != "" {
 		return p.xmlEncoder.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: key}})
@@ -164,6 +168,18 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) (*plis
 			b = true
 		}
 		return &plistValue{Boolean, b}, nil
+	case "date":
+		err := p.xmlDecoder.DecodeElement(&charData, &element)
+		if err != nil {
+			return nil, err
+		}
+
+		t, err := time.Parse(time.RFC3339, string(charData))
+		if err != nil {
+			return nil, err
+		}
+
+		return &plistValue{Date, t}, nil
 	case "data":
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
