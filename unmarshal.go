@@ -7,13 +7,13 @@ import (
 	"time"
 )
 
-type IncompatibleDecodeTypeError struct {
-	Type  reflect.Type
+type incompatibleDecodeTypeError struct {
+	typ   reflect.Type
 	pKind plistKind
 }
 
-func (u *IncompatibleDecodeTypeError) Error() string {
-	return fmt.Sprintf("Type mismatch: tried to decode %v into variable of type %v!", plistKindNames[u.pKind], u.Type)
+func (u *incompatibleDecodeTypeError) Error() string {
+	return fmt.Sprintf("Type mismatch: tried to decode %v into variable of type %v!", plistKindNames[u.pKind], u.typ)
 }
 
 var (
@@ -62,7 +62,7 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 		return nil
 	}
 
-	incompatibleTypeError := &IncompatibleDecodeTypeError{val.Type(), pval.kind}
+	incompatibleTypeError := &incompatibleDecodeTypeError{val.Type(), pval.kind}
 
 	// time.Time implements TextMarshaler, but we need to parse it as RFC3339
 	if pval.kind == Date {
@@ -198,7 +198,7 @@ func (p *Decoder) unmarshalDictionary(pval *plistValue, val reflect.Value) error
 		}
 		return nil
 	default:
-		return &IncompatibleDecodeTypeError{typ, pval.kind}
+		return &incompatibleDecodeTypeError{typ, pval.kind}
 	}
 }
 

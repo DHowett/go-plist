@@ -129,7 +129,7 @@ func (p *Encoder) marshal(val reflect.Value) (*plistValue, error) {
 		}
 	case reflect.Map:
 		if typ.Key().Kind() != reflect.String {
-			return nil, &UnknownTypeError{Type: typ}
+			return nil, &unknownTypeError{typ}
 		}
 
 		subvalues := make(map[string]*plistValue, val.Len())
@@ -143,7 +143,7 @@ func (p *Encoder) marshal(val reflect.Value) (*plistValue, error) {
 		}
 		return &plistValue{Dictionary, subvalues}, nil
 	default:
-		return nil, &UnknownTypeError{Type: typ}
+		return nil, &unknownTypeError{typ}
 	}
 	return nil, nil
 }

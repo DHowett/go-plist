@@ -33,11 +33,10 @@ type plistValue struct {
 	value interface{}
 }
 
-type UnknownTypeError struct {
-	Type reflect.Type
+type unknownTypeError struct {
+	typ reflect.Type
 }
 
-func (u *UnknownTypeError) Error() string {
-	return "Unknown type " + u.Type.String()
+func (u *unknownTypeError) Error() string {
+	return "Unknown type " + u.typ.String()
 }
-
