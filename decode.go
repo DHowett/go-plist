@@ -7,7 +7,6 @@ import (
 
 type plistValueDecoder interface {
 	decodeDocument() (*plistValue, error)
-	//decodePlistValue() (*plistValue, error)
 }
 
 type Decoder struct {
