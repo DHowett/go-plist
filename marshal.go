@@ -6,32 +6,6 @@ import (
 	"reflect"
 )
 
-type plistKind uint
-
-const (
-	Invalid plistKind = iota
-	Dictionary
-	Array
-	String
-	Integer
-	Real
-	Boolean
-	Data
-)
-
-type plistValue struct {
-	kind  plistKind
-	value interface{}
-}
-
-type UnknownTypeError struct {
-	Type reflect.Type
-}
-
-func (u *UnknownTypeError) Error() string {
-	return "Unknown type " + u.Type.String()
-}
-
 func isEmptyValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
