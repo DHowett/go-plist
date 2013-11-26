@@ -9,7 +9,7 @@
 	)
 	func main() {
 		encoder := plist.NewEncoder(os.Stdout)
-		encoder.EncodeDocument(map[string]string{"hello": "world"})
+		encoder.Encode(map[string]string{"hello": "world"})
 	}
 ## LICENSE
 Copyright (c) 2013 Dustin L. Howett
