@@ -2,7 +2,6 @@ package plist
 
 import (
 	"encoding"
-	"errors"
 	"reflect"
 )
 
@@ -134,5 +133,5 @@ func (p *Encoder) marshal(val reflect.Value) (*plistValue, error) {
 	default:
 		return nil, &UnknownTypeError{Type: typ}
 	}
-	return nil, errors.New("Wat")
+	return nil, nil
 }
