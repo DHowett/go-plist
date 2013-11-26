@@ -5,9 +5,9 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
+	"math"
 	"strconv"
 	"time"
-	"math"
 )
 
 const xmlDOCTYPE = `DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"`
@@ -174,10 +174,7 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) (*plis
 	case "true", "false":
 		p.xmlDecoder.Skip()
 
-		b := false
-		if element.Name.Local == "true" {
-			b = true
-		}
+		b := element.Name.Local == "true"
 		return &plistValue{Boolean, b}, nil
 	case "date":
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
