@@ -16,7 +16,7 @@ type xmlPlistValueEncoder struct {
 	xmlEncoder *xml.Encoder
 }
 
-func (p *xmlPlistValueEncoder) encodeDocument(plistVal *plistValue) error {
+func (p *xmlPlistValueEncoder) encodeDocument(pval *plistValue) error {
 	p.writer.Write([]byte(xml.Header))
 	p.xmlEncoder.EncodeToken(xml.Directive(xmlDOCTYPE))
 
@@ -35,18 +35,18 @@ func (p *xmlPlistValueEncoder) encodeDocument(plistVal *plistValue) error {
 	}
 
 	p.xmlEncoder.EncodeToken(plistStartElement)
-	err := p.encodePlistValue(plistVal)
+	err := p.encodePlistValue(pval)
 	p.xmlEncoder.EncodeToken(plistStartElement.End())
 	p.xmlEncoder.Flush()
 	return err
 }
 
-func (p *xmlPlistValueEncoder) encodePlistValue(plistVal *plistValue) error {
+func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) error {
 	defer p.xmlEncoder.Flush()
 
 	key := ""
-	encodedValue := plistVal.value
-	switch plistVal.kind {
+	encodedValue := pval.value
+	switch pval.kind {
 	case Dictionary:
 		startElement := xml.StartElement{Name: xml.Name{Local: "dict"}}
 		p.xmlEncoder.EncodeToken(startElement)
@@ -72,17 +72,17 @@ func (p *xmlPlistValueEncoder) encodePlistValue(plistVal *plistValue) error {
 		key = "real"
 	case Boolean:
 		key = "false"
-		b := plistVal.value.(bool)
+		b := pval.value.(bool)
 		if b {
 			key = "true"
 		}
 		encodedValue = ""
 	case Data:
 		key = "data"
-		encodedValue = xml.CharData(base64.StdEncoding.EncodeToString(plistVal.value.([]byte)))
+		encodedValue = xml.CharData(base64.StdEncoding.EncodeToString(pval.value.([]byte)))
 	case Date:
 		key = "date"
-		encodedValue = plistVal.value.(time.Time).Format(time.RFC3339)
+		encodedValue = pval.value.(time.Time).Format(time.RFC3339)
 	}
 	if key != "" {
 		return p.xmlEncoder.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: key}})
