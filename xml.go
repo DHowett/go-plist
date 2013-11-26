@@ -7,6 +7,7 @@ import (
 	"io"
 	"strconv"
 	"time"
+	"math"
 )
 
 const xmlDOCTYPE = `DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"`
@@ -70,6 +71,14 @@ func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) error {
 		key = "integer"
 	case Real:
 		key = "real"
+		switch {
+		case math.IsInf(pval.value.(float64), 1):
+			encodedValue = "inf"
+		case math.IsInf(pval.value.(float64), -1):
+			encodedValue = "-inf"
+		case math.IsNaN(pval.value.(float64)):
+			encodedValue = "nan"
+		}
 	case Boolean:
 		key = "false"
 		b := pval.value.(bool)
