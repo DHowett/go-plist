@@ -91,7 +91,7 @@ func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) error {
 		encodedValue = xml.CharData(base64.StdEncoding.EncodeToString(pval.value.([]byte)))
 	case Date:
 		key = "date"
-		encodedValue = pval.value.(time.Time).Format(time.RFC3339)
+		encodedValue = pval.value.(time.Time).In(time.UTC).Format(time.RFC3339)
 	}
 	if key != "" {
 		return p.xmlEncoder.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: key}})
@@ -182,7 +182,7 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) (*plis
 			return nil, err
 		}
 
-		t, err := time.Parse(time.RFC3339, string(charData))
+		t, err := time.ParseInLocation(time.RFC3339, string(charData), time.UTC)
 		if err != nil {
 			return nil, err
 		}
