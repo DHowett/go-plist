@@ -1,4 +1,4 @@
-# plist - A pure Go XML property transcoder
+# plist - A pure Go XML property list transcoder
 ## INSTALL
 	$ go get github.com/DHowett/go-plist
 ## USE
