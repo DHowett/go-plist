@@ -8,6 +8,7 @@ import (
 )
 
 type EncodingTest struct {
+	Name           string
 	Data           interface{}
 	ExpectedResult string
 	ShouldFail     bool
@@ -23,11 +24,13 @@ type SparseBundleHeader struct {
 
 var tests = []EncodingTest{
 	{
+		Name: "String",
 		Data: "Hello",
 		ExpectedResult: `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><string>Hello</string></plist>`,
 	},
 	{
+		Name: "Basic Structure",
 		Data: struct {
 			Name string
 		}{
@@ -37,26 +40,31 @@ var tests = []EncodingTest{
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Name</key><string>Dustin</string></dict></plist>`,
 	},
 	{
+		Name: "Arbitrary Byte Data",
 		Data: []byte{'h', 'e', 'l', 'l', 'o'},
 		ExpectedResult: `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><data>aGVsbG8=</data></plist>`,
 	},
 	{
+		Name: "Arbitrary Integer Array",
 		Data: []int{'h', 'e', 'l', 'l', 'o'},
 		ExpectedResult: `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><integer>104</integer><integer>101</integer><integer>108</integer><integer>108</integer><integer>111</integer></array></plist>`,
 	},
 	{
+		Name: "Boolean True",
 		Data: true,
 		ExpectedResult: `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><true></true></plist>`,
 	},
 	{
-		Data: 1.0,
+		Name: "Floating-Point Value",
+		Data: math.Pi,
 		ExpectedResult: `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><real>1</real></plist>`,
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><real>3.141592653589793</real></plist>`,
 	},
 	{
+		Name: "Map (containing arbitrary types)",
 		Data: map[string]interface{}{
 			"float":  1.0,
 			"uint64": uint64(1),
@@ -65,10 +73,12 @@ var tests = []EncodingTest{
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>float</key><real>1</real><key>uint64</key><integer>1</integer></dict></plist>`,
 	},
 	{
+		Name:       "Map (integer keys) (expected to fail)",
 		Data:       map[int]string{1: "hi"},
 		ShouldFail: true,
 	},
 	{
+		Name: "Pointer to structure with plist tags",
 		Data: &SparseBundleHeader{
 			InfoDictionaryVersion: "6.0",
 			BandSize:              8388608,
@@ -80,6 +90,7 @@ var tests = []EncodingTest{
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleInfoDictionaryVersion</key><string>6.0</string><key>band-size</key><integer>8388608</integer><key>bundle-backingstore-version</key><integer>1</integer><key>diskimage-bundle-type</key><string>com.apple.diskimage.sparsebundle</string><key>size</key><integer>4398046511104</integer></dict></plist>`,
 	},
 	{
+		Name: "Array of byte arrays",
 		Data: [][]byte{
 			[]byte("Hello"),
 			[]byte("World"),
@@ -88,14 +99,22 @@ var tests = []EncodingTest{
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><data>SGVsbG8=</data><data>V29ybGQ=</data></array></plist>`,
 	},
 	{
+		Name: "Date",
 		Data: time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC),
 		ExpectedResult: `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><date>2013-11-27T00:34:00Z</date></plist>`,
 	},
 	{
+		Name: "Floating-Point NaN",
 		Data: math.NaN(),
 		ExpectedResult: `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><real>nan</real></plist>`,
+	},
+	{
+		Name: "Floating-Point Infinity",
+		Data: math.Inf(1),
+		ExpectedResult: `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><real>inf</real></plist>`,
 	},
 }
 
@@ -104,9 +123,11 @@ func TestEncode(t *testing.T) {
 		buf := &bytes.Buffer{}
 		encoder := NewEncoder(buf)
 		err := encoder.Encode(test.Data)
-		t.Logf("Encoding %#v", test.Data)
+
+		t.Logf("Testing Encode (%s)", test.Name)
 
 		if (test.ExpectedResult != "" && test.ExpectedResult != buf.String()) || (test.ShouldFail && err == nil) {
+			t.Logf("Value: %#v", test.Data)
 			if test.ShouldFail {
 				t.Logf("Expected: Error")
 			} else {
@@ -114,15 +135,15 @@ func TestEncode(t *testing.T) {
 					t.Log("Expected:", test.ExpectedResult)
 				}
 			}
-			t.Log("FAILED")
-			t.Fail()
+
 			if err == nil {
 				t.Log("Received:", buf.String())
 			} else {
 				t.Log("   Error:", err)
 			}
-		} else {
-			t.Log("SUCCEEDED")
+
+			t.Log("FAILED")
+			t.Fail()
 		}
 	}
 }
