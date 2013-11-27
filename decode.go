@@ -1,6 +1,8 @@
 package plist
 
 import (
+	"bytes"
+	"errors"
 	"io"
 	"reflect"
 )
@@ -22,8 +24,25 @@ func (p *Decoder) Decode(v interface{}) error {
 	return p.unmarshal(pval, reflect.ValueOf(v))
 }
 
+type noopDecoder struct{}
+
+func (p *noopDecoder) decodeDocument() (*plistValue, error) {
+	return nil, errors.New("invalid property list document format")
+}
+
 func NewDecoder(r io.ReadSeeker) *Decoder {
-	return &Decoder{
-		valueDecoder: newXMLPlistValueDecoder(r),
+	header := make([]byte, 7)
+	r.Read(header)
+	r.Seek(0, 0)
+
+	var decoder plistValueDecoder
+
+	if bytes.Equal(header, []byte("bplist0")) {
+		decoder = newBplistValueDecoder(r)
+	} else if bytes.Contains(header, []byte("<")) {
+		decoder = newXMLPlistValueDecoder(r)
+	} else {
+		decoder = &noopDecoder{}
 	}
+	return &Decoder{decoder}
 }
