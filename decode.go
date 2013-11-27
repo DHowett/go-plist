@@ -22,7 +22,7 @@ func (p *Decoder) Decode(v interface{}) error {
 	return p.unmarshal(pval, reflect.ValueOf(v))
 }
 
-func NewDecoder(r io.Reader) *Decoder {
+func NewDecoder(r io.ReadSeeker) *Decoder {
 	return &Decoder{
 		valueDecoder: newXMLPlistValueDecoder(r),
 	}
