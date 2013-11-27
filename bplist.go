@@ -104,6 +104,21 @@ func (p *bplistValueDecoder) readIntBytes(nbytes int) (uint64, error) {
 	return 0, errors.New("illegal integer size")
 }
 
+func (p *bplistValueDecoder) countForTag(tag uint8) (uint64, error) {
+	cnt := uint64(tag & 0x0F)
+	if cnt == 0xF {
+		var intTag uint8
+		binary.Read(p.reader, binary.BigEndian, &intTag)
+
+		var err error
+		cnt, err = p.readIntBytes(1 << (intTag & 0xF))
+		if err != nil {
+			return 0, err
+		}
+	}
+	return cnt, nil
+}
+
 func (p *bplistValueDecoder) valueAtOffset(off uint64) (*plistValue, error) {
 	if pval, ok := p.objrefs[off]; ok {
 		return pval, nil
@@ -159,76 +174,52 @@ func (p *bplistValueDecoder) decodeTagAtOffset(off int64) (*plistValue, error) {
 		time := time.Unix(int64(sec), int64(fsec*float64(time.Second)))
 		return &plistValue{Date, time}, nil
 	case bpTagData:
-		var nbytes uint64
-		nbytes = uint64(tag & 0x0F)
-		if nbytes == 0xF {
-			var intTag uint8
-			binary.Read(p.reader, binary.BigEndian, &intTag)
-
-			var err error
-			nbytes, err = p.readIntBytes(1 << (intTag & 0xF))
-			if err != nil {
-				return nil, err
-			}
+		cnt, err := p.countForTag(tag)
+		if err != nil {
+			return nil, err
 		}
 
-		bytes := make([]byte, nbytes)
+		bytes := make([]byte, cnt)
 		binary.Read(p.reader, binary.BigEndian, bytes)
 		return &plistValue{Data, bytes}, nil
 	case bpTagASCIIString, bpTagUTF16String:
-		var nchars uint64
-		nchars = uint64(tag & 0x0F)
-		if nchars == 0xF {
-			var intTag uint8
-			binary.Read(p.reader, binary.BigEndian, &intTag)
-
-			var err error
-			nchars, err = p.readIntBytes(1 << (intTag & 0xF))
-			if err != nil {
-				return nil, err
-			}
+		cnt, err := p.countForTag(tag)
+		if err != nil {
+			return nil, err
 		}
 
 		if tag&0xF0 == bpTagASCIIString {
-			bytes := make([]byte, nchars)
+			bytes := make([]byte, cnt)
 			binary.Read(p.reader, binary.BigEndian, bytes)
 			return &plistValue{String, string(bytes)}, nil
 		} else {
-			bytes := make([]uint16, nchars)
+			bytes := make([]uint16, cnt)
 			binary.Read(p.reader, binary.BigEndian, bytes)
 			runes := utf16.Decode(bytes)
 			return &plistValue{String, string(runes)}, nil
 		}
 	case bpTagDictionary:
-		var nent uint64
-		nent = uint64(tag & 0x0F)
-		if nent == 0xF {
-			var intTag uint8
-			binary.Read(p.reader, binary.BigEndian, &intTag)
-
-			var err error
-			nent, err = p.readIntBytes(1 << (intTag & 0xF))
-			if err != nil {
-				return nil, err
-			}
+		cnt, err := p.countForTag(tag)
+		if err != nil {
+			return nil, err
 		}
 
 		dict := make(map[string]*plistValue)
-		indices := make([]uint64, nent*2)
-		for i := uint64(0); i < nent*2; i++ {
+		indices := make([]uint64, cnt*2)
+		for i := uint64(0); i < cnt*2; i++ {
 			idx, err := p.readIntBytes(int(p.trailer.ObjectRefSize))
 			if err != nil {
 				return nil, err
 			}
 			indices[i] = idx
 		}
-		for i := uint64(0); i < nent; i++ {
+		for i := uint64(0); i < cnt; i++ {
 			kval, err := p.valueAtOffset(p.offtable[indices[i]])
 			if err != nil {
 				return nil, err
 			}
 
-			pval, err := p.valueAtOffset(p.offtable[indices[i+nent]])
+			pval, err := p.valueAtOffset(p.offtable[indices[i+cnt]])
 			if err != nil {
 				return nil, err
 			}
@@ -237,29 +228,21 @@ func (p *bplistValueDecoder) decodeTagAtOffset(off int64) (*plistValue, error) {
 
 		return &plistValue{Dictionary, dict}, nil
 	case bpTagArray:
-		var nent uint64
-		nent = uint64(tag & 0x0F)
-		if nent == 0xF {
-			var intTag uint8
-			binary.Read(p.reader, binary.BigEndian, &intTag)
-
-			var err error
-			nent, err = p.readIntBytes(1 << (intTag & 0xF))
-			if err != nil {
-				return nil, err
-			}
+		cnt, err := p.countForTag(tag)
+		if err != nil {
+			return nil, err
 		}
 
-		arr := make([]*plistValue, nent)
-		indices := make([]uint64, nent)
-		for i := uint64(0); i < nent; i++ {
+		arr := make([]*plistValue, cnt)
+		indices := make([]uint64, cnt)
+		for i := uint64(0); i < cnt; i++ {
 			idx, err := p.readIntBytes(int(p.trailer.ObjectRefSize))
 			if err != nil {
 				return nil, err
 			}
 			indices[i] = idx
 		}
-		for i := uint64(0); i < nent; i++ {
+		for i := uint64(0); i < cnt; i++ {
 			pval, err := p.valueAtOffset(p.offtable[indices[i]])
 			if err != nil {
 				return nil, err
