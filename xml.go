@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"strconv"
@@ -17,7 +18,7 @@ type xmlPlistValueEncoder struct {
 	xmlEncoder *xml.Encoder
 }
 
-func (p *xmlPlistValueEncoder) encodeDocument(pval *plistValue) error {
+func (p *xmlPlistValueEncoder) encodeDocument(pval *plistValue) {
 	p.writer.Write([]byte(xml.Header))
 	p.xmlEncoder.EncodeToken(xml.Directive(xmlDOCTYPE))
 
@@ -36,13 +37,14 @@ func (p *xmlPlistValueEncoder) encodeDocument(pval *plistValue) error {
 	}
 
 	p.xmlEncoder.EncodeToken(plistStartElement)
-	err := p.encodePlistValue(pval)
+
+	p.encodePlistValue(pval)
+
 	p.xmlEncoder.EncodeToken(plistStartElement.End())
 	p.xmlEncoder.Flush()
-	return err
 }
 
-func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) error {
+func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) {
 	defer p.xmlEncoder.Flush()
 
 	key := ""
@@ -94,9 +96,11 @@ func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) error {
 		encodedValue = pval.value.(time.Time).In(time.UTC).Format(time.RFC3339)
 	}
 	if key != "" {
-		return p.xmlEncoder.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: key}})
+		err := p.xmlEncoder.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: key}})
+		if err != nil {
+			panic(err)
+		}
 	}
-	return nil
 }
 
 func newXMLPlistValueEncoder(w io.Writer) *xmlPlistValueEncoder {
@@ -108,27 +112,26 @@ type xmlPlistValueDecoder struct {
 	xmlDecoder *xml.Decoder
 }
 
-func (p *xmlPlistValueDecoder) decodeDocument() (*plistValue, error) {
+func (p *xmlPlistValueDecoder) decodeDocument() *plistValue {
 	for {
 		if token, err := p.xmlDecoder.Token(); err == nil {
 			if element, ok := token.(xml.StartElement); ok {
 				return p.decodeXMLElement(element)
 			}
 		} else {
-			return nil, err
+			panic(err)
 		}
 	}
-	return nil, nil
 }
 
-func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) (*plistValue, error) {
+func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) *plistValue {
 	var charData xml.CharData
 	switch element.Name.Local {
 	case "plist":
 		for {
 			token, err := p.xmlDecoder.Token()
 			if err != nil {
-				return nil, err
+				panic(err)
 			}
 
 			if el, ok := token.(xml.EndElement); ok && el.Name.Local == "plist" {
@@ -139,76 +142,75 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) (*plis
 				return p.decodeXMLElement(el)
 			}
 		}
-		return nil, nil
 	case "string":
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
-		return &plistValue{String, string(charData)}, nil
+		return &plistValue{String, string(charData)}
 	case "integer":
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
 		n, err := strconv.ParseUint(string(charData), 10, 64)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
-		return &plistValue{Integer, n}, nil
+		return &plistValue{Integer, n}
 	case "real":
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
 		n, err := strconv.ParseFloat(string(charData), 64)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
-		return &plistValue{Real, n}, nil
+		return &plistValue{Real, n}
 	case "true", "false":
 		p.xmlDecoder.Skip()
 
 		b := element.Name.Local == "true"
-		return &plistValue{Boolean, b}, nil
+		return &plistValue{Boolean, b}
 	case "date":
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
 		t, err := time.ParseInLocation(time.RFC3339, string(charData), time.UTC)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
-		return &plistValue{Date, t}, nil
+		return &plistValue{Date, t}
 	case "data":
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
 		l := base64.StdEncoding.DecodedLen(len(charData))
 		bytes := make([]uint8, l)
 		l, err = base64.StdEncoding.Decode(bytes, charData)
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 
-		return &plistValue{Data, bytes[:l]}, nil
+		return &plistValue{Data, bytes[:l]}
 	case "dict":
 		var key string
 		var subvalues map[string]*plistValue = make(map[string]*plistValue)
 		for {
 			token, err := p.xmlDecoder.Token()
 			if err != nil {
-				return nil, err
+				panic(err)
 			}
 
 			if el, ok := token.(xml.EndElement); ok && el.Name.Local == "dict" {
@@ -220,23 +222,19 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) (*plis
 					p.xmlDecoder.DecodeElement(&key, &el)
 				} else {
 					if key == "" {
-						return nil, errors.New("Missing key for value")
+						panic(errors.New("Missing key for value"))
 					}
-					sval, err := p.decodeXMLElement(el)
-					if err != nil {
-						return nil, err
-					}
-					subvalues[key] = sval
+					subvalues[key] = p.decodeXMLElement(el)
 				}
 			}
 		}
-		return &plistValue{Dictionary, subvalues}, nil
+		return &plistValue{Dictionary, subvalues}
 	case "array":
 		var subvalues []*plistValue = make([]*plistValue, 0, 10)
 		for {
 			token, err := p.xmlDecoder.Token()
 			if err != nil {
-				return nil, err
+				panic(err)
 			}
 
 			if el, ok := token.(xml.EndElement); ok && el.Name.Local == "array" {
@@ -244,16 +242,14 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) (*plis
 			}
 
 			if el, ok := token.(xml.StartElement); ok {
-				sval, err := p.decodeXMLElement(el)
-				if err != nil {
-					return nil, err
-				}
-				subvalues = append(subvalues, sval)
+				subvalues = append(subvalues, p.decodeXMLElement(el))
 			}
 		}
-		return &plistValue{Array, subvalues}, nil
+		return &plistValue{Array, subvalues}
+	default:
+		panic(fmt.Errorf("encountered unknown element %s in XML", element.Name.Local))
 	}
-	return nil, nil
+	return nil
 }
 
 func newXMLPlistValueDecoder(r io.Reader) *xmlPlistValueDecoder {

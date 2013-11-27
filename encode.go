@@ -3,11 +3,12 @@ package plist
 import (
 	"io"
 	"reflect"
+	"runtime"
 )
 
 type plistValueEncoder interface {
-	encodeDocument(*plistValue) error
-	encodePlistValue(*plistValue) error
+	encodeDocument(*plistValue)
+	encodePlistValue(*plistValue)
 }
 
 type Encoder struct {
@@ -15,12 +16,19 @@ type Encoder struct {
 	valueEncoder plistValueEncoder
 }
 
-func (p *Encoder) Encode(v interface{}) error {
-	pv, err := p.marshal(reflect.ValueOf(v))
-	if err != nil {
-		return err
-	}
-	return p.valueEncoder.encodeDocument(pv)
+func (p *Encoder) Encode(v interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+			err = r.(error)
+		}
+	}()
+
+	pval := p.marshal(reflect.ValueOf(v))
+	p.valueEncoder.encodeDocument(pval)
+	return
 }
 
 func NewEncoder(w io.Writer) *Encoder {

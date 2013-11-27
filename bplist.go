@@ -44,20 +44,20 @@ type bplistValueDecoder struct {
 	trailer  bplistTrailer
 }
 
-func (p *bplistValueDecoder) decodeDocument() (*plistValue, error) {
+func (p *bplistValueDecoder) decodeDocument() *plistValue {
 	magic := make([]byte, 6)
 	ver := make([]byte, 2)
 	p.reader.Seek(0, 0)
 	p.reader.Read(magic)
 	if !bytes.Equal(magic, []byte("bplist")) {
-		return nil, errors.New("invalid binary property list (mismatched magic)")
+		panic(errors.New("invalid binary property list (mismatched magic)"))
 	}
 
 	p.reader.Read(ver)
 	if version, err := strconv.ParseInt(string(ver), 10, 0); err == nil {
 		p.version = int(version)
 	} else {
-		return nil, err
+		panic(err)
 	}
 
 	p.objrefs = make(map[uint64]*plistValue)
@@ -69,11 +69,7 @@ func (p *bplistValueDecoder) decodeDocument() (*plistValue, error) {
 	// SEEK_SET
 	p.reader.Seek(int64(p.trailer.OffsetTableOffset), 0)
 	for i := uint64(0); i < p.trailer.NumObjects; i++ {
-		off, err := p.readSizedInt(int(p.trailer.OffsetIntSize))
-		if err != nil {
-			return nil, err
-		}
-
+		off := p.readSizedInt(int(p.trailer.OffsetIntSize))
 		p.offtable[i] = off
 	}
 
@@ -84,57 +80,50 @@ func (p *bplistValueDecoder) decodeDocument() (*plistValue, error) {
 	return p.valueAtOffset(p.offtable[p.trailer.TopObject])
 }
 
-func (p *bplistValueDecoder) readSizedInt(nbytes int) (uint64, error) {
+func (p *bplistValueDecoder) readSizedInt(nbytes int) uint64 {
 	switch nbytes {
 	case 1:
 		var val uint8
 		binary.Read(p.reader, binary.BigEndian, &val)
-		return uint64(val), nil
+		return uint64(val)
 	case 2:
 		var val uint16
 		binary.Read(p.reader, binary.BigEndian, &val)
-		return uint64(val), nil
+		return uint64(val)
 	case 4:
 		var val uint32
 		binary.Read(p.reader, binary.BigEndian, &val)
-		return uint64(val), nil
+		return uint64(val)
 	case 8:
 		var val uint64
 		binary.Read(p.reader, binary.BigEndian, &val)
-		return uint64(val), nil
+		return uint64(val)
 	}
-	return 0, errors.New("illegal integer size")
+	panic(errors.New("illegal integer size"))
 }
 
-func (p *bplistValueDecoder) countForTag(tag uint8) (uint64, error) {
+func (p *bplistValueDecoder) countForTag(tag uint8) uint64 {
 	cnt := uint64(tag & 0x0F)
 	if cnt == 0xF {
 		var intTag uint8
 		binary.Read(p.reader, binary.BigEndian, &intTag)
-
-		var err error
-		cnt, err = p.readSizedInt(1 << (intTag & 0xF))
-		if err != nil {
-			return 0, err
-		}
+		cnt = p.readSizedInt(1 << (intTag & 0xF))
 	}
-	return cnt, nil
+	return cnt
 }
 
-func (p *bplistValueDecoder) valueAtOffset(off uint64) (*plistValue, error) {
+func (p *bplistValueDecoder) valueAtOffset(off uint64) *plistValue {
 	if pval, ok := p.objrefs[off]; ok {
-		return pval, nil
+		return pval
 	} else {
-		pval, err := p.decodeTagAtOffset(int64(off))
-		if err != nil {
-			return nil, err
-		}
+		pval := p.decodeTagAtOffset(int64(off))
 		p.objrefs[off] = pval
-		return pval, nil
+		return pval
 	}
+	return nil
 }
 
-func (p *bplistValueDecoder) decodeTagAtOffset(off int64) (*plistValue, error) {
+func (p *bplistValueDecoder) decodeTagAtOffset(off int64) *plistValue {
 	var tag uint8
 	p.reader.Seek(off, 0)
 	binary.Read(p.reader, binary.BigEndian, &tag)
@@ -143,27 +132,24 @@ func (p *bplistValueDecoder) decodeTagAtOffset(off int64) (*plistValue, error) {
 	case bpTagNull:
 		switch tag & 0x0F {
 		case bpTagBoolTrue, bpTagBoolFalse:
-			return &plistValue{Boolean, tag == bpTagBoolTrue}, nil
+			return &plistValue{Boolean, tag == bpTagBoolTrue}
 		}
 	case bpTagInteger:
-		val, err := p.readSizedInt(1 << (tag & 0xF))
-		if err != nil {
-			return nil, err
-		}
-		return &plistValue{Integer, val}, nil
+		val := p.readSizedInt(1 << (tag & 0xF))
+		return &plistValue{Integer, val}
 	case bpTagReal:
 		nbytes := 1 << (tag & 0x0F)
 		switch nbytes {
 		case 4:
 			var val float32
 			binary.Read(p.reader, binary.BigEndian, &val)
-			return &plistValue{Real, float64(val)}, nil
+			return &plistValue{Real, float64(val)}
 		case 8:
 			var val float64
 			binary.Read(p.reader, binary.BigEndian, &val)
-			return &plistValue{Real, float64(val)}, nil
+			return &plistValue{Real, float64(val)}
 		}
-		return nil, errors.New("illegal float size")
+		panic(errors.New("illegal float size"))
 	case bpTagDate:
 		var val float64
 		binary.Read(p.reader, binary.BigEndian, &val)
@@ -174,87 +160,56 @@ func (p *bplistValueDecoder) decodeTagAtOffset(off int64) (*plistValue, error) {
 
 		sec, fsec := math.Modf(val)
 		time := time.Unix(int64(sec), int64(fsec*float64(time.Second)))
-		return &plistValue{Date, time}, nil
+		return &plistValue{Date, time}
 	case bpTagData:
-		cnt, err := p.countForTag(tag)
-		if err != nil {
-			return nil, err
-		}
+		cnt := p.countForTag(tag)
 
 		bytes := make([]byte, cnt)
 		binary.Read(p.reader, binary.BigEndian, bytes)
-		return &plistValue{Data, bytes}, nil
+		return &plistValue{Data, bytes}
 	case bpTagASCIIString, bpTagUTF16String:
-		cnt, err := p.countForTag(tag)
-		if err != nil {
-			return nil, err
-		}
+		cnt := p.countForTag(tag)
 
 		if tag&0xF0 == bpTagASCIIString {
 			bytes := make([]byte, cnt)
 			binary.Read(p.reader, binary.BigEndian, bytes)
-			return &plistValue{String, string(bytes)}, nil
+			return &plistValue{String, string(bytes)}
 		} else {
 			bytes := make([]uint16, cnt)
 			binary.Read(p.reader, binary.BigEndian, bytes)
 			runes := utf16.Decode(bytes)
-			return &plistValue{String, string(runes)}, nil
+			return &plistValue{String, string(runes)}
 		}
 	case bpTagDictionary:
-		cnt, err := p.countForTag(tag)
-		if err != nil {
-			return nil, err
-		}
+		cnt := p.countForTag(tag)
 
 		dict := make(map[string]*plistValue)
 		indices := make([]uint64, cnt*2)
 		for i := uint64(0); i < cnt*2; i++ {
-			idx, err := p.readSizedInt(int(p.trailer.ObjectRefSize))
-			if err != nil {
-				return nil, err
-			}
+			idx := p.readSizedInt(int(p.trailer.ObjectRefSize))
 			indices[i] = idx
 		}
 		for i := uint64(0); i < cnt; i++ {
-			kval, err := p.valueAtOffset(p.offtable[indices[i]])
-			if err != nil {
-				return nil, err
-			}
-
-			pval, err := p.valueAtOffset(p.offtable[indices[i+cnt]])
-			if err != nil {
-				return nil, err
-			}
-			dict[kval.value.(string)] = pval
+			kval := p.valueAtOffset(p.offtable[indices[i]])
+			dict[kval.value.(string)] = p.valueAtOffset(p.offtable[indices[i+cnt]])
 		}
 
-		return &plistValue{Dictionary, dict}, nil
+		return &plistValue{Dictionary, dict}
 	case bpTagArray:
-		cnt, err := p.countForTag(tag)
-		if err != nil {
-			return nil, err
-		}
+		cnt := p.countForTag(tag)
 
 		arr := make([]*plistValue, cnt)
 		indices := make([]uint64, cnt)
 		for i := uint64(0); i < cnt; i++ {
-			idx, err := p.readSizedInt(int(p.trailer.ObjectRefSize))
-			if err != nil {
-				return nil, err
-			}
-			indices[i] = idx
+			indices[i] = p.readSizedInt(int(p.trailer.ObjectRefSize))
 		}
 		for i := uint64(0); i < cnt; i++ {
-			pval, err := p.valueAtOffset(p.offtable[indices[i]])
-			if err != nil {
-				return nil, err
-			}
-			arr[i] = pval
+			arr[i] = p.valueAtOffset(p.offtable[indices[i]])
 		}
 
-		return &plistValue{Array, arr}, nil
+		return &plistValue{Array, arr}
 	}
-	return nil, nil
+	return nil
 }
 
 func newBplistValueDecoder(r io.ReadSeeker) *bplistValueDecoder {

@@ -5,29 +5,36 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"runtime"
 )
 
 type plistValueDecoder interface {
-	decodeDocument() (*plistValue, error)
+	decodeDocument() *plistValue
 }
 
 type Decoder struct {
 	valueDecoder plistValueDecoder
 }
 
-func (p *Decoder) Decode(v interface{}) error {
-	pval, err := p.valueDecoder.decodeDocument()
-	if err != nil {
-		return err
-	}
+func (p *Decoder) Decode(v interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+			err = r.(error)
+		}
+	}()
 
-	return p.unmarshal(pval, reflect.ValueOf(v))
+	pval := p.valueDecoder.decodeDocument()
+	p.unmarshal(pval, reflect.ValueOf(v))
+	return
 }
 
 type noopDecoder struct{}
 
-func (p *noopDecoder) decodeDocument() (*plistValue, error) {
-	return nil, errors.New("invalid property list document format")
+func (p *noopDecoder) decodeDocument() *plistValue {
+	panic(errors.New("invalid property list document format"))
 }
 
 func NewDecoder(r io.ReadSeeker) *Decoder {
