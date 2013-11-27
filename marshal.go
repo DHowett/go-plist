@@ -73,6 +73,12 @@ func (p *Encoder) marshal(val reflect.Value) (*plistValue, error) {
 	if val.Type() == timeType {
 		return p.marshalTime(val)
 	}
+	if val.Kind() == reflect.Ptr || (val.Kind() == reflect.Interface && val.NumMethod() == 0) {
+		ival := val.Elem()
+		if ival.Type() == timeType {
+			return p.marshalTime(ival)
+		}
+	}
 
 	// Check for text marshaler.
 	if val.CanInterface() && typ.Implements(textMarshalerType) {
@@ -86,7 +92,7 @@ func (p *Encoder) marshal(val reflect.Value) (*plistValue, error) {
 	}
 
 	// Descend into pointers or interfaces
-	if val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface {
+	if val.Kind() == reflect.Ptr || (val.Kind() == reflect.Interface && val.NumMethod() == 0) {
 		val = val.Elem()
 		typ = val.Type()
 	}
