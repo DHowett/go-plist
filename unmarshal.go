@@ -68,6 +68,11 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 	if pval.kind == Date {
 		if val.Type() == timeType {
 			return p.unmarshalTime(pval, val)
+		} else if val.Kind() == reflect.Ptr || (val.Kind() == reflect.Interface && val.NumMethod() == 0) {
+			ival := val.Elem()
+			if ival.Type() == timeType {
+				return p.unmarshalTime(pval, ival)
+			}
 		} else {
 			return incompatibleTypeError
 		}
