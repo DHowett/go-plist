@@ -1,10 +1,12 @@
 # plist - A pure Go property list transcoder
 ## INSTALL
 	$ go get github.com/DHowett/go-plist
+
 ## FEATURES
 * Supports encoding/decoding Apple property lists from/to arbitrary Go types
     * Encoding and Decoding for XML property lists
     * Decoding only (for now) for binary property lists
+
 ## USE
 	package main
 	import (
@@ -15,6 +17,7 @@
 		encoder := plist.NewEncoder(os.Stdout)
 		encoder.Encode(map[string]string{"hello": "world"})
 	}
+
 ## LICENSE
 Copyright (c) 2013 Dustin L. Howett
 
