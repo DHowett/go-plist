@@ -58,8 +58,6 @@ func (p *Encoder) marshalTime(val reflect.Value) *plistValue {
 }
 
 func (p *Encoder) marshal(val reflect.Value) *plistValue {
-	typ := val.Type()
-
 	if !val.IsValid() {
 		return nil
 	}
@@ -70,13 +68,13 @@ func (p *Encoder) marshal(val reflect.Value) *plistValue {
 	}
 	if val.Kind() == reflect.Ptr || (val.Kind() == reflect.Interface && val.NumMethod() == 0) {
 		ival := val.Elem()
-		if ival.Type() == timeType {
+		if ival.IsValid() && ival.Type() == timeType {
 			return p.marshalTime(ival)
 		}
 	}
 
 	// Check for text marshaler.
-	if val.CanInterface() && typ.Implements(textMarshalerType) {
+	if val.CanInterface() && val.Type().Implements(textMarshalerType) {
 		return p.marshalTextInterface(val.Interface().(encoding.TextMarshaler))
 	}
 	if val.CanAddr() {
@@ -89,8 +87,14 @@ func (p *Encoder) marshal(val reflect.Value) *plistValue {
 	// Descend into pointers or interfaces
 	if val.Kind() == reflect.Ptr || (val.Kind() == reflect.Interface && val.NumMethod() == 0) {
 		val = val.Elem()
-		typ = val.Type()
 	}
+
+	// We got this far and still may have an invalid anything or nil ptr/interface
+	if !val.IsValid() || ((val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface) && val.IsNil()) {
+		return nil
+	}
+
+	typ := val.Type()
 
 	if val.Kind() == reflect.Struct {
 		return p.marshalStruct(typ, val)
@@ -120,7 +124,9 @@ func (p *Encoder) marshal(val reflect.Value) *plistValue {
 		} else {
 			subvalues := make([]*plistValue, val.Len())
 			for idx, length := 0, val.Len(); idx < length; idx++ {
-				subvalues[idx] = p.marshal(val.Index(idx))
+				if subpval := p.marshal(val.Index(idx)); subpval != nil {
+					subvalues[idx] = subpval
+				}
 			}
 			return &plistValue{Array, subvalues}
 		}
@@ -131,7 +137,9 @@ func (p *Encoder) marshal(val reflect.Value) *plistValue {
 
 		subvalues := make(map[string]*plistValue, val.Len())
 		for _, keyv := range val.MapKeys() {
-			subvalues[keyv.String()] = p.marshal(val.MapIndex(keyv))
+			if subpval := p.marshal(val.MapIndex(keyv)); subpval != nil {
+				subvalues[keyv.String()] = subpval
+			}
 		}
 		return &plistValue{Dictionary, subvalues}
 	default:

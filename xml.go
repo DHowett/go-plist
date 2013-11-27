@@ -45,6 +45,10 @@ func (p *xmlPlistValueEncoder) encodeDocument(pval *plistValue) {
 }
 
 func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) {
+	if pval == nil {
+		return
+	}
+
 	defer p.xmlEncoder.Flush()
 
 	key := ""

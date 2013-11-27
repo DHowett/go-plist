@@ -1,6 +1,7 @@
 package plist
 
 import (
+	"errors"
 	"io"
 	"reflect"
 	"runtime"
@@ -27,6 +28,10 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 	}()
 
 	pval := p.marshal(reflect.ValueOf(v))
+	if pval == nil {
+		panic(errors.New("no root element to encode"))
+	}
+
 	p.valueEncoder.encodeDocument(pval)
 	return
 }

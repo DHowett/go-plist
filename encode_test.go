@@ -27,6 +27,11 @@ var xmlPreamble string = `<?xml version="1.0" encoding="UTF-8"?>
 
 var tests = []EncodingTest{
 	{
+		Name:       "Nil",
+		Data:       nil,
+		ShouldFail: true,
+	},
+	{
 		Name:           "String",
 		Data:           "Hello",
 		ExpectedResult: xmlPreamble + `<plist version="1.0"><string>Hello</string></plist>`,
@@ -67,6 +72,15 @@ var tests = []EncodingTest{
 			"uint64": uint64(1),
 		},
 		ExpectedResult: xmlPreamble + `<plist version="1.0"><dict><key>float</key><real>1</real><key>uint64</key><integer>1</integer></dict></plist>`,
+	},
+	{
+		Name: "Map (containing nil)",
+		Data: map[string]interface{}{
+			"float":  1.5,
+			"uint64": uint64(1),
+			"nil":    nil,
+		},
+		ExpectedResult: xmlPreamble + `<plist version="1.0"><dict><key>float</key><real>1.5</real><key>uint64</key><integer>1</integer></dict></plist>`,
 	},
 	{
 		Name:       "Map (integer keys) (expected to fail)",
