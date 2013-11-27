@@ -106,7 +106,7 @@ func (p *Encoder) marshal(val reflect.Value) (*plistValue, error) {
 		return &plistValue{String, val.String()}, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return &plistValue{Integer, val.Int()}, nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return &plistValue{Integer, val.Uint()}, nil
 	case reflect.Float32, reflect.Float64:
 		return &plistValue{Real, val.Float()}, nil

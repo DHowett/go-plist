@@ -102,7 +102,7 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 		switch val.Kind() {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			val.SetInt(int64(pval.value.(uint64)))
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 			val.SetUint(pval.value.(uint64))
 		default:
 			return incompatibleTypeError
