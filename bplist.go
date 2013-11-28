@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"io"
 	"math"
 	"strconv"
@@ -46,12 +47,22 @@ type bplistValueEncoder struct {
 
 func (p *bplistValueEncoder) flattenPlistValue(pval *plistValue) {
 	switch pval.kind {
-	// TODO: unique Data?
 	case String, Integer, Real, Date:
 		if _, ok := p.uniqmap[pval.value]; ok {
 			return
 		}
 		p.uniqmap[pval.value] = p.nobjects
+	case Data:
+		// Data are uniqued by their checksums.
+		// The wonderful difference between uint64 (which we use for numbers)
+		// and uint32 makes this possible.
+		// Todo: Look at calculating this only once and storing it somewhere;
+		// crc32 is fairly quick, however.
+		uniqkey := crc32.ChecksumIEEE(pval.value.([]byte))
+		if _, ok := p.uniqmap[uniqkey]; ok {
+			return
+		}
+		p.uniqmap[uniqkey] = p.nobjects
 	}
 
 	p.objtable = append(p.objtable, pval)
@@ -77,9 +88,10 @@ func (p *bplistValueEncoder) indexForPlistValue(pval *plistValue) (uint64, bool)
 	var v uint64
 	var ok bool
 	switch pval.kind {
-	// TODO: unique Data?
 	case String, Integer, Real, Date:
 		v, ok = p.uniqmap[pval.value]
+	case Data:
+		v, ok = p.uniqmap[crc32.ChecksumIEEE(pval.value.([]byte))]
 	default:
 		v, ok = p.objmap[pval]
 	}
