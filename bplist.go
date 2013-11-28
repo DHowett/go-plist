@@ -35,6 +35,300 @@ const (
 	bpTagDictionary        = 0xD0
 )
 
+type bplistValueEncoder struct {
+	writer   *countedWriter
+	uniqmap  map[interface{}]uint64
+	objmap   map[*plistValue]uint64
+	objtable []*plistValue
+	nobjects uint64
+	trailer  bplistTrailer
+}
+
+func (p *bplistValueEncoder) flattenPlistValue(pval *plistValue) {
+	switch pval.kind {
+	// TODO: unique Data?
+	case String, Integer, Real, Date:
+		if _, ok := p.uniqmap[pval.value]; ok {
+			return
+		}
+		p.uniqmap[pval.value] = p.nobjects
+	}
+
+	p.objtable = append(p.objtable, pval)
+	p.objmap[pval] = p.nobjects
+	p.nobjects++
+
+	switch pval.kind {
+	case Dictionary:
+		subvalues := pval.value.(map[string]*plistValue)
+		for k, v := range subvalues {
+			p.flattenPlistValue(&plistValue{String, k})
+			p.flattenPlistValue(v)
+		}
+	case Array:
+		subvalues := pval.value.([]*plistValue)
+		for _, v := range subvalues {
+			p.flattenPlistValue(v)
+		}
+	}
+}
+
+func (p *bplistValueEncoder) indexForPlistValue(pval *plistValue) (uint64, bool) {
+	var v uint64
+	var ok bool
+	switch pval.kind {
+	// TODO: unique Data?
+	case String, Integer, Real, Date:
+		v, ok = p.uniqmap[pval.value]
+	default:
+		v, ok = p.objmap[pval]
+	}
+	return v, ok
+}
+
+func (p *bplistValueEncoder) encodeDocument(rootpval *plistValue) {
+	p.objtable = make([]*plistValue, 0, 15)
+	p.uniqmap = make(map[interface{}]uint64)
+	p.objmap = make(map[*plistValue]uint64)
+	p.flattenPlistValue(rootpval)
+
+	p.trailer.NumObjects = uint64(len(p.objtable))
+	p.trailer.ObjectRefSize = uint8(minimumSizeForInt(p.trailer.NumObjects))
+
+	p.writer.Write([]byte("bplist00"))
+
+	offtable := make([]uint64, p.trailer.NumObjects)
+	for i, pval := range p.objtable {
+		offtable[i] = uint64(p.writer.BytesWritten())
+		p.encodePlistValue(pval)
+	}
+
+	p.trailer.OffsetIntSize = uint8(minimumSizeForInt(uint64(p.writer.BytesWritten())))
+	p.trailer.TopObject = p.objmap[rootpval]
+	p.trailer.OffsetTableOffset = uint64(p.writer.BytesWritten())
+
+	for _, offset := range offtable {
+		p.writeSizedInt(offset, int(p.trailer.OffsetIntSize))
+	}
+
+	binary.Write(p.writer, binary.BigEndian, p.trailer)
+}
+
+func (p *bplistValueEncoder) encodePlistValue(pval *plistValue) {
+	if pval == nil {
+		return
+	}
+
+	switch pval.kind {
+	case Dictionary:
+		p.writeDictionaryTag(pval.value.(map[string]*plistValue))
+	case Array:
+		p.writeArrayTag(pval.value.([]*plistValue))
+	case String:
+		p.writeStringTag(pval.value.(string))
+	case Integer:
+		p.writeIntTag(pval.value.(uint64))
+	case Real:
+		p.writeRealTag(pval.value.(float64))
+	case Boolean:
+		p.writeBoolTag(pval.value.(bool))
+	case Data:
+		p.writeDataTag(pval.value.([]byte))
+	case Date:
+		p.writeDateTag(pval.value.(time.Time))
+	}
+}
+
+func minimumSizeForInt(n uint64) int {
+	switch {
+	case n <= uint64(0xff):
+		return 1
+	case n <= uint64(0xffff):
+		return 2
+	case n <= uint64(0xffffffff):
+		return 4
+	default:
+		return 8
+	}
+	panic(errors.New("illegal integer size"))
+}
+
+func (p *bplistValueEncoder) writeSizedInt(n uint64, nbytes int) {
+	var val interface{}
+	switch nbytes {
+	case 1:
+		val = uint8(n)
+	case 2:
+		val = uint16(n)
+	case 4:
+		val = uint32(n)
+	case 8:
+		val = n
+	default:
+		panic(errors.New("illegal integer size"))
+	}
+	err := binary.Write(p.writer, binary.BigEndian, val)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (p *bplistValueEncoder) writeBoolTag(v bool) {
+	tag := uint8(bpTagBoolFalse)
+	if v {
+		tag = bpTagBoolTrue
+	}
+	err := binary.Write(p.writer, binary.BigEndian, tag)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (p *bplistValueEncoder) writeIntTag(n uint64) {
+	var tag uint8
+	var val interface{}
+	switch {
+	case n <= uint64(0xff):
+		val = uint8(n)
+		tag = bpTagInteger | 0x0
+	case n <= uint64(0xffff):
+		val = uint16(n)
+		tag = bpTagInteger | 0x1
+	case n <= uint64(0xffffffff):
+		val = uint32(n)
+		tag = bpTagInteger | 0x2
+	default:
+		val = n
+		tag = bpTagInteger | 0x3
+	}
+	err := binary.Write(p.writer, binary.BigEndian, tag)
+	if err != nil {
+		panic(err)
+	}
+
+	err = binary.Write(p.writer, binary.BigEndian, val)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (p *bplistValueEncoder) writeRealTag(n float64) {
+	var tag uint8
+	var val interface{}
+	switch {
+	case n >= math.SmallestNonzeroFloat32 && n <= math.MaxFloat32:
+		val = float32(n)
+		tag = bpTagReal | 0x2
+	default:
+		val = n
+		tag = bpTagReal | 0x3
+	}
+	err := binary.Write(p.writer, binary.BigEndian, tag)
+	if err != nil {
+		panic(err)
+	}
+
+	err = binary.Write(p.writer, binary.BigEndian, val)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (p *bplistValueEncoder) writeDateTag(t time.Time) {
+	tag := uint8(bpTagDate) | 0x3
+	val := float64(t.In(time.UTC).UnixNano()) / float64(time.Second)
+	val -= 978307200 // Adjust to Apple Epoch
+	err := binary.Write(p.writer, binary.BigEndian, tag)
+	if err != nil {
+		panic(err)
+	}
+
+	err = binary.Write(p.writer, binary.BigEndian, val)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (p *bplistValueEncoder) writeCountedTag(tag uint8, count uint64) {
+	marker := tag
+	if count > 0xF {
+		marker |= 0xF
+	} else {
+		marker |= uint8(count)
+	}
+
+	err := binary.Write(p.writer, binary.BigEndian, marker)
+	if err != nil {
+		panic(err)
+	}
+
+	if count > 0xF {
+		p.writeIntTag(count)
+	}
+}
+
+func (p *bplistValueEncoder) writeDataTag(data []byte) {
+	p.writeCountedTag(bpTagData, uint64(len(data)))
+	err := binary.Write(p.writer, binary.BigEndian, data)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (p *bplistValueEncoder) writeStringTag(str string) {
+	// TODO: UTF-16?
+	data := []byte(str)
+	p.writeCountedTag(bpTagASCIIString, uint64(len(data)))
+	err := binary.Write(p.writer, binary.BigEndian, data)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (p *bplistValueEncoder) writeDictionaryTag(dict map[string]*plistValue) {
+	p.writeCountedTag(bpTagDictionary, uint64(len(dict)))
+	vals := make([]uint64, len(dict)*2)
+	cnt := len(dict)
+	i := 0
+	for k, v := range dict {
+		keyIdx, ok := p.uniqmap[k]
+		if !ok {
+			panic(errors.New("failed to find key " + k + " in object map during serialization"))
+		}
+
+		objIdx, ok := p.indexForPlistValue(v)
+		if !ok {
+			panic(errors.New("failed to find value for key " + k + " in object map during serialization"))
+		}
+
+		vals[i] = keyIdx
+		vals[i+cnt] = objIdx
+		i++
+	}
+
+	for _, v := range vals {
+		p.writeSizedInt(v, int(p.trailer.ObjectRefSize))
+	}
+}
+
+func (p *bplistValueEncoder) writeArrayTag(arr []*plistValue) {
+	p.writeCountedTag(bpTagArray, uint64(len(arr)))
+	for _, v := range arr {
+		objIdx, ok := p.indexForPlistValue(v)
+		if !ok {
+			panic(errors.New("failed to find value in object map during serialization"))
+		}
+
+		p.writeSizedInt(objIdx, int(p.trailer.ObjectRefSize))
+	}
+}
+
+func newBplistValueEncoder(w io.Writer) *bplistValueEncoder {
+	return &bplistValueEncoder{
+		writer: &countedWriter{Writer: w},
+	}
+}
+
 type bplistValueDecoder struct {
 	reader   io.ReadSeeker
 	version  int

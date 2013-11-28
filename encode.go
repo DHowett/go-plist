@@ -77,3 +77,11 @@ func NewEncoder(w io.Writer) *Encoder {
 	}
 	return p
 }
+
+// NewBinaryEncoder returns an Encoder that writes a binary property list to w.
+func NewBinaryEncoder(w io.Writer) *Encoder {
+	p := &Encoder{
+		valueEncoder: newBplistValueEncoder(w),
+	}
+	return p
+}
