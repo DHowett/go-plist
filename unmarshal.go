@@ -85,7 +85,7 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 	switch pval.kind {
 	case String:
 		if val.Kind() == reflect.String {
-			val.Set(reflect.ValueOf(pval.value.(string)))
+			val.SetString(pval.value.(string))
 		} else {
 			panic(incompatibleTypeError)
 		}
@@ -100,19 +100,19 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 		}
 	case Real:
 		if val.Kind() == reflect.Float32 || val.Kind() == reflect.Float64 {
-			val.Set(reflect.ValueOf(pval.value.(float64)))
+			val.SetFloat(pval.value.(float64))
 		} else {
 			panic(incompatibleTypeError)
 		}
 	case Boolean:
 		if val.Kind() == reflect.Bool {
-			val.Set(reflect.ValueOf(pval.value.(bool)))
+			val.SetBool(pval.value.(bool))
 		} else {
 			panic(incompatibleTypeError)
 		}
 	case Data:
 		if typ.Elem().Kind() == reflect.Uint8 {
-			val.Set(reflect.ValueOf(pval.value.([]byte)))
+			val.SetBytes(pval.value.([]byte))
 		} else {
 			panic(incompatibleTypeError)
 		}
