@@ -29,6 +29,8 @@ type Encoder struct {
 // the property list format bears no representation for nil values.
 //
 // Strings, integers of varying size, floats and booleans are encoded unchanged.
+// Strings bearing non-ASCII runes will be encoded differently depending upon the property list format:
+// UTF-8 for XML property lists and UTF-16 for binary property lists.
 //
 // Slice and Array values are encoded as property list arrays, except for
 // []byte values, which are encoded as data.
