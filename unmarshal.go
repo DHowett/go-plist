@@ -24,26 +24,17 @@ func isEmptyInterface(v reflect.Value) bool {
 	return v.Kind() == reflect.Interface && v.NumMethod() == 0
 }
 
-func (p *Decoder) unmarshalTextInterface(pval *plistValue, unmarshalable encoding.TextUnmarshaler) error {
-	return unmarshalable.UnmarshalText([]byte(pval.value.(string)))
+func (p *Decoder) unmarshalTextInterface(pval *plistValue, unmarshalable encoding.TextUnmarshaler) {
+	unmarshalable.UnmarshalText([]byte(pval.value.(string)))
 }
 
-func (p *Decoder) unmarshalTime(pval *plistValue, val reflect.Value) error {
+func (p *Decoder) unmarshalTime(pval *plistValue, val reflect.Value) {
 	val.Set(reflect.ValueOf(pval.value.(time.Time)))
-	return nil
 }
 
-func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
-	defer func() {
-		if r := recover(); r != nil {
-			if rerr, ok := r.(error); ok {
-				eret = rerr
-			}
-		}
-	}()
-
+func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 	if pval == nil {
-		return nil
+		return
 	}
 
 	if val.Kind() == reflect.Ptr {
@@ -54,12 +45,9 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 	}
 
 	if isEmptyInterface(val) {
-		v, err := p.valueInterface(pval)
-		if err != nil {
-			return err
-		}
+		v := p.valueInterface(pval)
 		val.Set(reflect.ValueOf(v))
-		return nil
+		return
 	}
 
 	incompatibleTypeError := &incompatibleDecodeTypeError{val.Type(), pval.kind}
@@ -67,25 +55,28 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 	// time.Time implements TextMarshaler, but we need to parse it as RFC3339
 	if pval.kind == Date {
 		if val.Type() == timeType {
-			return p.unmarshalTime(pval, val)
+			p.unmarshalTime(pval, val)
+			return
 		} else if val.Kind() == reflect.Ptr || (val.Kind() == reflect.Interface && val.NumMethod() == 0) {
 			ival := val.Elem()
 			if ival.Type() == timeType {
-				return p.unmarshalTime(pval, ival)
+				p.unmarshalTime(pval, ival)
+				return
 			}
-		} else {
-			return incompatibleTypeError
 		}
+		panic(incompatibleTypeError)
 	}
 
 	if val.CanInterface() && val.Type().Implements(textUnmarshalerType) {
-		return p.unmarshalTextInterface(pval, val.Interface().(encoding.TextUnmarshaler))
+		p.unmarshalTextInterface(pval, val.Interface().(encoding.TextUnmarshaler))
+		return
 	}
 
 	if val.CanAddr() {
 		pv := val.Addr()
 		if pv.CanInterface() && pv.Type().Implements(textUnmarshalerType) {
-			return p.unmarshalTextInterface(pval, pv.Interface().(encoding.TextUnmarshaler))
+			p.unmarshalTextInterface(pval, pv.Interface().(encoding.TextUnmarshaler))
+			return
 		}
 	}
 
@@ -96,7 +87,7 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 		if val.Kind() == reflect.String {
 			val.Set(reflect.ValueOf(pval.value.(string)))
 		} else {
-			return incompatibleTypeError
+			panic(incompatibleTypeError)
 		}
 	case Integer:
 		switch val.Kind() {
@@ -105,25 +96,25 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 			val.SetUint(pval.value.(uint64))
 		default:
-			return incompatibleTypeError
+			panic(incompatibleTypeError)
 		}
 	case Real:
 		if val.Kind() == reflect.Float32 || val.Kind() == reflect.Float64 {
 			val.Set(reflect.ValueOf(pval.value.(float64)))
 		} else {
-			return incompatibleTypeError
+			panic(incompatibleTypeError)
 		}
 	case Boolean:
 		if val.Kind() == reflect.Bool {
 			val.Set(reflect.ValueOf(pval.value.(bool)))
 		} else {
-			return incompatibleTypeError
+			panic(incompatibleTypeError)
 		}
 	case Data:
 		if typ.Elem().Kind() == reflect.Uint8 {
 			val.Set(reflect.ValueOf(pval.value.([]byte)))
 		} else {
-			return incompatibleTypeError
+			panic(incompatibleTypeError)
 		}
 	case Array:
 		p.unmarshalArray(pval, val)
@@ -131,8 +122,6 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 		p.unmarshalDictionary(pval, val)
 	default:
 	}
-
-	return nil
 }
 
 func (p *Decoder) unmarshalArray(pval *plistValue, val reflect.Value) error {
@@ -164,9 +153,7 @@ func (p *Decoder) unmarshalArray(pval *plistValue, val reflect.Value) error {
 
 	// Recur to read element into slice.
 	for _, sval := range subvalues {
-		if err := p.unmarshal(sval, val.Index(n)); err != nil {
-			return err
-		}
+		p.unmarshal(sval, val.Index(n))
 		n++
 	}
 	return nil
@@ -183,10 +170,7 @@ func (p *Decoder) unmarshalDictionary(pval *plistValue, val reflect.Value) error
 
 		subvalues := pval.value.(map[string]*plistValue)
 		for _, finfo := range tinfo.fields {
-			err := p.unmarshal(subvalues[finfo.name], finfo.value(val))
-			if err != nil {
-				return err
-			}
+			p.unmarshal(subvalues[finfo.name], finfo.value(val))
 		}
 		return nil
 	case reflect.Map:
@@ -202,11 +186,7 @@ func (p *Decoder) unmarshalDictionary(pval *plistValue, val reflect.Value) error
 				mapElem = reflect.New(typ.Elem()).Elem()
 			}
 
-			err := p.unmarshal(sval, mapElem)
-			if err != nil {
-				return err
-			}
-
+			p.unmarshal(sval, mapElem)
 			val.SetMapIndex(keyv, mapElem)
 		}
 		return nil
@@ -216,49 +196,42 @@ func (p *Decoder) unmarshalDictionary(pval *plistValue, val reflect.Value) error
 }
 
 /* *Interface is modelled after encoding/json */
-func (p *Decoder) valueInterface(pval *plistValue) (interface{}, error) {
+func (p *Decoder) valueInterface(pval *plistValue) interface{} {
 	switch pval.kind {
 	case String:
-		return pval.value.(string), nil
+		return pval.value.(string)
 	case Integer:
-		return pval.value.(uint64), nil
+		return pval.value.(uint64)
 	case Real:
-		return pval.value.(float64), nil
+		return pval.value.(float64)
 	case Boolean:
-		return pval.value.(bool), nil
+		return pval.value.(bool)
 	case Array:
 		return p.arrayInterface(pval.value.([]*plistValue))
 	case Dictionary:
 		return p.mapInterface(pval.value.(map[string]*plistValue))
 	case Data:
-		return pval.value.([]byte), nil
+		return pval.value.([]byte)
 	case Date:
-		return pval.value.(time.Time), nil
+		return pval.value.(time.Time)
 	default:
-		return nil, fmt.Errorf("Unknown plist type %v", plistKindNames[pval.kind])
+		panic(fmt.Errorf("unsupported plist type %v", plistKindNames[pval.kind]))
 	}
+	return nil
 }
 
-func (p *Decoder) arrayInterface(subvalues []*plistValue) ([]interface{}, error) {
+func (p *Decoder) arrayInterface(subvalues []*plistValue) []interface{} {
 	out := make([]interface{}, len(subvalues))
 	for i, subv := range subvalues {
-		sv, err := p.valueInterface(subv)
-		if err != nil {
-			return nil, err
-		}
-		out[i] = sv
+		out[i] = p.valueInterface(subv)
 	}
-	return out, nil
+	return out
 }
 
-func (p *Decoder) mapInterface(subvalues map[string]*plistValue) (map[string]interface{}, error) {
+func (p *Decoder) mapInterface(subvalues map[string]*plistValue) map[string]interface{} {
 	out := make(map[string]interface{})
 	for k, subv := range subvalues {
-		sv, err := p.valueInterface(subv)
-		if err != nil {
-			return nil, err
-		}
-		out[k] = sv
+		out[k] = p.valueInterface(subv)
 	}
-	return out, nil
+	return out
 }
