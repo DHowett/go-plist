@@ -148,6 +148,11 @@ var tests = []EncodingTest{
 		Data:           math.Inf(1),
 		ExpectedResult: xmlPreamble + `<plist version="1.0"><real>inf</real></plist>`,
 	},
+	{
+		Name:           "UTF-8 string",
+		Data:           []string{"Hello, ASCII", "Hello, 世界"},
+		ExpectedResult: xmlPreamble + `<plist version="1.0"><array><string>Hello, ASCII</string><string>Hello, 世界</string></array></plist>`,
+	},
 }
 
 func TestEncode(t *testing.T) {
