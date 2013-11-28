@@ -73,9 +73,14 @@ var tests = []EncodingTest{
 		ExpectedResult: xmlPreamble + `<plist version="1.0"><data>aGVsbG8=</data></plist>`,
 	},
 	{
-		Name:           "Arbitrary Integer Array",
+		Name:           "Arbitrary Integer Slice",
 		Data:           []int{'h', 'e', 'l', 'l', 'o'},
 		ExpectedResult: xmlPreamble + `<plist version="1.0"><array><integer>104</integer><integer>101</integer><integer>108</integer><integer>108</integer><integer>111</integer></array></plist>`,
+	},
+	{
+		Name:           "Arbitrary Integer Array",
+		Data:           [3]int{'h', 'i', '!'},
+		ExpectedResult: xmlPreamble + `<plist version="1.0"><array><integer>104</integer><integer>105</integer><integer>33</integer></array></plist>`,
 	},
 	{
 		Name:           "Boolean True",
