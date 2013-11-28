@@ -38,5 +38,5 @@ type unknownTypeError struct {
 }
 
 func (u *unknownTypeError) Error() string {
-	return "Unknown type " + u.typ.String()
+	return "can't serialize value of type " + u.typ.String()
 }

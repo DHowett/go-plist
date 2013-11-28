@@ -226,7 +226,7 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) *plist
 					p.xmlDecoder.DecodeElement(&key, &el)
 				} else {
 					if key == "" {
-						panic(errors.New("Missing key for value"))
+						panic(errors.New("missing key in dictionary"))
 					}
 					subvalues[key] = p.decodeXMLElement(el)
 				}

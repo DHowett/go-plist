@@ -13,7 +13,7 @@ type incompatibleDecodeTypeError struct {
 }
 
 func (u *incompatibleDecodeTypeError) Error() string {
-	return fmt.Sprintf("Type mismatch: tried to decode %v into variable of type %v!", plistKindNames[u.pKind], u.typ)
+	return fmt.Sprintf("type mismatch: tried to decode %v into value of type %v", plistKindNames[u.pKind], u.typ)
 }
 
 var (
@@ -121,6 +121,7 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 	case Dictionary:
 		p.unmarshalDictionary(pval, val)
 	default:
+		panic(fmt.Errorf("unsupported plist type %v", plistKindNames[pval.kind]))
 	}
 }
 
