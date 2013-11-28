@@ -288,10 +288,19 @@ func (p *bplistValueEncoder) writeDataTag(data []byte) {
 }
 
 func (p *bplistValueEncoder) writeStringTag(str string) {
-	// TODO: UTF-16?
-	data := []byte(str)
-	p.writeCountedTag(bpTagASCIIString, uint64(len(data)))
-	err := binary.Write(p.writer, binary.BigEndian, data)
+	var err error
+	for _, r := range str {
+		if r > 0xFF {
+			utf16Runes := utf16.Encode([]rune(str))
+			p.writeCountedTag(bpTagUTF16String, uint64(len(utf16Runes)))
+			err = binary.Write(p.writer, binary.BigEndian, utf16Runes)
+			break
+		}
+	}
+
+	p.writeCountedTag(bpTagASCIIString, uint64(len(str)))
+	err = binary.Write(p.writer, binary.BigEndian, []byte(str))
+
 	if err != nil {
 		panic(err)
 	}
