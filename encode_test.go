@@ -46,6 +46,28 @@ var tests = []EncodingTest{
 		ExpectedResult: xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string></dict></plist>`,
 	},
 	{
+		Name: "Basic Structure with non-exported fields",
+		Data: struct {
+			Name string
+			age  int
+		}{
+			Name: "Dustin",
+			age:  24,
+		},
+		ExpectedResult: xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string></dict></plist>`,
+	},
+	{
+		Name: "Basic Structure with omitted fields",
+		Data: struct {
+			Name string
+			Age  int `plist:"-"`
+		}{
+			Name: "Dustin",
+			Age:  24,
+		},
+		ExpectedResult: xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string></dict></plist>`,
+	},
+	{
 		Name:           "Arbitrary Byte Data",
 		Data:           []byte{'h', 'e', 'l', 'l', 'o'},
 		ExpectedResult: xmlPreamble + `<plist version="1.0"><data>aGVsbG8=</data></plist>`,
