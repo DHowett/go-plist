@@ -138,25 +138,33 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) (eret error) {
 func (p *Decoder) unmarshalArray(pval *plistValue, val reflect.Value) error {
 	subvalues := pval.value.([]*plistValue)
 
-	// Slice of element values.
-	// Grow slice.
-	cnt := len(subvalues) + val.Len()
-	if cnt >= val.Cap() {
-		ncap := 2 * cnt
-		if ncap < 4 {
-			ncap = 4
+	var n int
+	if val.Kind() == reflect.Slice {
+		// Slice of element values.
+		// Grow slice.
+		cnt := len(subvalues) + val.Len()
+		if cnt >= val.Cap() {
+			ncap := 2 * cnt
+			if ncap < 4 {
+				ncap = 4
+			}
+			new := reflect.MakeSlice(val.Type(), val.Len(), ncap)
+			reflect.Copy(new, val)
+			val.Set(new)
 		}
-		new := reflect.MakeSlice(val.Type(), val.Len(), ncap)
-		reflect.Copy(new, val)
-		val.Set(new)
+		n = val.Len()
+		val.SetLen(cnt)
+	} else if val.Kind() == reflect.Array {
+		if len(subvalues) > val.Cap() {
+			return fmt.Errorf("attempted to unmarshal %d values into an array of size %d", len(subvalues), val.Cap())
+		}
+	} else {
+		return &incompatibleDecodeTypeError{val.Type(), pval.kind}
 	}
-	n := val.Len()
 
 	// Recur to read element into slice.
 	for _, sval := range subvalues {
-		val.SetLen(n + 1)
 		if err := p.unmarshal(sval, val.Index(n)); err != nil {
-			val.SetLen(n)
 			return err
 		}
 		n++
