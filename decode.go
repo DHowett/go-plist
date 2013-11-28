@@ -54,7 +54,9 @@ func (p *noopDecoder) decodeDocument() *plistValue {
 }
 
 // NewDecoder returns a Decoder that reads a property list from r.
-// NewDecoder reads 7 bytes from the start of r to determine the property list format.
+// NewDecoder requires a Seekable stream as it reads 7 bytes
+// from the start of r to determine the property list format,
+// and then seeks back to the beginning of the stream.
 func NewDecoder(r io.ReadSeeker) *Decoder {
 	header := make([]byte, 7)
 	r.Read(header)

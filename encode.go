@@ -70,7 +70,7 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 	return
 }
 
-// NewEncoder returns an Encoder that writes an XML property list to w
+// NewEncoder returns an Encoder that writes an XML property list to w.
 func NewEncoder(w io.Writer) *Encoder {
 	p := &Encoder{
 		valueEncoder: newXMLPlistValueEncoder(w),
