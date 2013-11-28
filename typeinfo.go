@@ -35,6 +35,9 @@ func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
 		n := typ.NumField()
 		for i := 0; i < n; i++ {
 			f := typ.Field(i)
+			if f.PkgPath != "" || f.Tag.Get("plist") == "-" {
+				continue // Private field
+			}
 
 			// For embedded structs, embed its fields.
 			if f.Anonymous {
