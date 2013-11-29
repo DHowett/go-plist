@@ -3,9 +3,7 @@
 	$ go get github.com/DHowett/go-plist
 
 ## FEATURES
-* Supports encoding/decoding Apple property lists from/to arbitrary Go types
-    * Encoding and Decoding for XML property lists
-    * Decoding only (for now) for binary property lists
+* Supports encoding/decoding Apple property lists (both XML and binary) from/to arbitrary Go types
 
 ## USE
 	package main
