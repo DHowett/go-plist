@@ -470,7 +470,7 @@ func (p *bplistValueDecoder) decodeTagAtOffset(off int64) *plistValue {
 		val += 978307200
 
 		sec, fsec := math.Modf(val)
-		time := time.Unix(int64(sec), int64(fsec*float64(time.Second)))
+		time := time.Unix(int64(sec), int64(fsec*float64(time.Second))).In(time.UTC)
 		return &plistValue{Date, time}
 	case bpTagData:
 		cnt := p.countForTag(tag)
