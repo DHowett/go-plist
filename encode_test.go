@@ -7,12 +7,14 @@ import (
 	"time"
 )
 
-type EncodingTest struct {
+type TestData struct {
 	Name        string
 	Data        interface{}
+	DecodeData  interface{}
 	ExpectedXML string
 	ExpectedBin []byte
 	ShouldFail  bool
+	SkipDecode  bool
 }
 
 type SparseBundleHeader struct {
@@ -26,7 +28,7 @@ type SparseBundleHeader struct {
 var xmlPreamble string = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">`
 
-var tests = []EncodingTest{
+var tests = []TestData{
 	{
 		Name:       "Nil",
 		Data:       nil,
@@ -57,6 +59,12 @@ var tests = []EncodingTest{
 			Name: "Dustin",
 			age:  24,
 		},
+		DecodeData: struct {
+			Name string
+			age  int
+		}{
+			Name: "Dustin",
+		},
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string></dict></plist>`,
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 209, 1, 2, 84, 78, 97, 109, 101, 86, 68, 117, 115, 116, 105, 110, 8, 11, 16, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23},
 	},
@@ -68,6 +76,12 @@ var tests = []EncodingTest{
 		}{
 			Name: "Dustin",
 			Age:  24,
+		},
+		DecodeData: struct {
+			Name string
+			Age  int `plist:"-"`
+		}{
+			Name: "Dustin",
 		},
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string></dict></plist>`,
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 209, 1, 2, 84, 78, 97, 109, 101, 86, 68, 117, 115, 116, 105, 110, 8, 11, 16, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23},
@@ -118,6 +132,10 @@ var tests = []EncodingTest{
 			"uint64": uint64(1),
 			"nil":    nil,
 		},
+		DecodeData: map[string]interface{}{
+			"float":  1.5,
+			"uint64": uint64(1),
+		},
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><dict><key>float</key><real>1.5</real><key>uint64</key><integer>1</integer></dict></plist>`,
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 210, 1, 3, 2, 4, 85, 102, 108, 111, 97, 116, 35, 63, 248, 0, 0, 0, 0, 0, 0, 86, 117, 105, 110, 116, 54, 52, 16, 1, 8, 13, 19, 28, 35, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 37},
 	},
@@ -125,6 +143,7 @@ var tests = []EncodingTest{
 		Name:       "Map (integer keys) (expected to fail)",
 		Data:       map[int]string{1: "hi"},
 		ShouldFail: true,
+		SkipDecode: true,
 	},
 	{
 		Name: "Pointer to structure with plist tags",
@@ -136,6 +155,7 @@ var tests = []EncodingTest{
 			BackingStoreVersion:   1,
 		},
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><dict><key>CFBundleInfoDictionaryVersion</key><string>6.0</string><key>band-size</key><integer>8388608</integer><key>bundle-backingstore-version</key><integer>1</integer><key>diskimage-bundle-type</key><string>com.apple.diskimage.sparsebundle</string><key>size</key><integer>4398046511104</integer></dict></plist>`,
+		SkipDecode:  true,
 	},
 	{
 		Name: "Array of byte arrays",
@@ -157,6 +177,7 @@ var tests = []EncodingTest{
 		Data:        math.NaN(),
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><real>nan</real></plist>`,
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 35, 127, 248, 0, 0, 0, 0, 0, 1, 8, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17},
+		SkipDecode:  true,
 	},
 	{
 		Name:        "Floating-Point Infinity",
