@@ -24,8 +24,8 @@ type bplistTrailer struct {
 
 const (
 	bpTagNull        uint8 = 0x00
-	bpTagBoolTrue          = 0x08
-	bpTagBoolFalse         = 0x09
+	bpTagBoolFalse         = 0x08
+	bpTagBoolTrue          = 0x09
 	bpTagInteger           = 0x10
 	bpTagReal              = 0x20
 	bpTagDate              = 0x30
