@@ -177,7 +177,7 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) *plist
 			panic(err)
 		}
 
-		return &plistValue{Real, n}
+		return &plistValue{Real, sizedFloat{n, 64}}
 	case "true", "false":
 		p.xmlDecoder.Skip()
 

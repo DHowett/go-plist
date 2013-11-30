@@ -454,11 +454,11 @@ func (p *bplistValueDecoder) decodeTagAtOffset(off int64) *plistValue {
 		case 4:
 			var val float32
 			binary.Read(p.reader, binary.BigEndian, &val)
-			return &plistValue{Real, float64(val)}
+			return &plistValue{Real, sizedFloat{float64(val), 32}}
 		case 8:
 			var val float64
 			binary.Read(p.reader, binary.BigEndian, &val)
-			return &plistValue{Real, float64(val)}
+			return &plistValue{Real, sizedFloat{float64(val), 64}}
 		}
 		panic(errors.New("illegal float size"))
 	case bpTagDate:
