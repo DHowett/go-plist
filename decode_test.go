@@ -6,6 +6,80 @@ import (
 	"testing"
 )
 
+func BenchmarkXMLDecode(b *testing.B) {
+	ntests := 0
+	for _, test := range tests {
+		if test.SkipDecode || test.ExpectedBin == nil {
+			continue
+		}
+
+		testData := reflect.ValueOf(test.Data)
+		if !testData.IsValid() || isEmptyInterface(testData) {
+			continue
+		}
+		ntests++
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N/ntests; i++ {
+		b.StopTimer()
+		for _, test := range tests {
+			if test.SkipDecode || test.ExpectedXML == "" {
+				continue
+			}
+
+			testData := reflect.ValueOf(test.Data)
+			if !testData.IsValid() || isEmptyInterface(testData) {
+				continue
+			}
+
+			var bval interface{} = reflect.New(testData.Type()).Interface()
+
+			buf := bytes.NewReader([]byte(test.ExpectedXML))
+			b.StartTimer()
+			decoder := NewDecoder(buf)
+			decoder.Decode(bval)
+		}
+	}
+}
+
+func BenchmarkBinaryDecode(b *testing.B) {
+	ntests := 0
+	for _, test := range tests {
+		if test.SkipDecode || test.ExpectedBin == nil {
+			continue
+		}
+
+		testData := reflect.ValueOf(test.Data)
+		if !testData.IsValid() || isEmptyInterface(testData) {
+			continue
+		}
+		ntests++
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N/ntests; i++ {
+		b.StopTimer()
+		for _, test := range tests {
+			if test.SkipDecode || test.ExpectedBin == nil {
+				continue
+			}
+
+			testData := reflect.ValueOf(test.Data)
+			if !testData.IsValid() || isEmptyInterface(testData) {
+				continue
+			}
+
+			var bval interface{} = reflect.New(testData.Type()).Interface()
+
+			buf := bytes.NewReader(test.ExpectedBin)
+			b.StartTimer()
+			decoder := NewDecoder(buf)
+			decoder.Decode(bval)
+		}
+	}
+}
+
 func TestDecode(t *testing.T) {
 	var failed bool
 	for _, test := range tests {
@@ -68,9 +142,9 @@ func TestDecode(t *testing.T) {
 
 		if bval != nil && xval != nil {
 			if !reflect.DeepEqual(bval, xval) {
-			t.Log("Binary and XML decoding yielded different values.")
-			t.Log("Binary:", bval)
-			t.Log("XML   :", xval)
+				t.Log("Binary and XML decoding yielded different values.")
+				t.Log("Binary:", bval)
+				t.Log("XML   :", xval)
 				failed = true
 			}
 		}

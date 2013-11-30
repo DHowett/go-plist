@@ -193,6 +193,22 @@ var tests = []TestData{
 	},
 }
 
+func BenchmarkBinaryEncode(b *testing.B) {
+	for i := 0; i < b.N/len(tests); i++ {
+		for _, test := range tests {
+			NewBinaryEncoder(&bytes.Buffer{}).Encode(test.Data)
+		}
+	}
+}
+
+func BenchmarkXMLEncode(b *testing.B) {
+	for i := 0; i < b.N/len(tests); i++ {
+		for _, test := range tests {
+			NewEncoder(&bytes.Buffer{}).Encode(test.Data)
+		}
+	}
+}
+
 func TestEncode(t *testing.T) {
 	var failed bool
 	for _, test := range tests {
