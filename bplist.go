@@ -290,7 +290,7 @@ func (p *bplistValueEncoder) writeStringTag(str string) {
 			utf16Runes := utf16.Encode([]rune(str))
 			p.writeCountedTag(bpTagUTF16String, uint64(len(utf16Runes)))
 			err = binary.Write(p.writer, binary.BigEndian, utf16Runes)
-			break
+			return
 		}
 	}
 
