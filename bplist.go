@@ -141,7 +141,7 @@ func (p *bplistValueEncoder) encodePlistValue(pval *plistValue) {
 	case Integer:
 		p.writeIntTag(pval.value.(uint64))
 	case Real:
-		p.writeRealTag(pval.value.(float64))
+		p.writeRealTag(pval.value.(sizedFloat).value, pval.value.(sizedFloat).bits)
 	case Boolean:
 		p.writeBoolTag(pval.value.(bool))
 	case Data:
@@ -224,16 +224,12 @@ func (p *bplistValueEncoder) writeIntTag(n uint64) {
 	}
 }
 
-func (p *bplistValueEncoder) writeRealTag(n float64) {
-	var tag uint8
-	var val interface{}
-	switch {
-	case n >= math.SmallestNonzeroFloat32 && n <= math.MaxFloat32:
+func (p *bplistValueEncoder) writeRealTag(n float64, bits int) {
+	var tag uint8 = bpTagReal | 0x3
+	var val interface{} = n
+	if bits == 32 {
 		val = float32(n)
 		tag = bpTagReal | 0x2
-	default:
-		val = n
-		tag = bpTagReal | 0x3
 	}
 	err := binary.Write(p.writer, binary.BigEndian, tag)
 	if err != nil {

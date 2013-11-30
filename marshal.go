@@ -108,7 +108,7 @@ func (p *Encoder) marshal(val reflect.Value) *plistValue {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return &plistValue{Integer, uint64(val.Uint())}
 	case reflect.Float32, reflect.Float64:
-		return &plistValue{Real, val.Float()}
+		return &plistValue{Real, sizedFloat{val.Float(), val.Type().Bits()}}
 	case reflect.Bool:
 		return &plistValue{Boolean, val.Bool()}
 	case reflect.Slice, reflect.Array:

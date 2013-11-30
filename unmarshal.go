@@ -100,7 +100,7 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 		}
 	case Real:
 		if val.Kind() == reflect.Float32 || val.Kind() == reflect.Float64 {
-			val.SetFloat(pval.value.(float64))
+			val.SetFloat(pval.value.(sizedFloat).value)
 		} else {
 			panic(incompatibleTypeError)
 		}
@@ -204,7 +204,7 @@ func (p *Decoder) valueInterface(pval *plistValue) interface{} {
 	case Integer:
 		return pval.value.(uint64)
 	case Real:
-		return pval.value.(float64)
+		return pval.value.(sizedFloat).value
 	case Boolean:
 		return pval.value.(bool)
 	case Array:

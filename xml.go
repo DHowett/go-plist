@@ -77,12 +77,13 @@ func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) {
 		key = "integer"
 	case Real:
 		key = "real"
+		encodedValue = pval.value.(sizedFloat).value
 		switch {
-		case math.IsInf(pval.value.(float64), 1):
+		case math.IsInf(pval.value.(sizedFloat).value, 1):
 			encodedValue = "inf"
-		case math.IsInf(pval.value.(float64), -1):
+		case math.IsInf(pval.value.(sizedFloat).value, -1):
 			encodedValue = "-inf"
-		case math.IsNaN(pval.value.(float64)):
+		case math.IsNaN(pval.value.(sizedFloat).value):
 			encodedValue = "nan"
 		}
 	case Boolean:

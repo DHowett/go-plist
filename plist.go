@@ -33,6 +33,11 @@ type plistValue struct {
 	value interface{}
 }
 
+type sizedFloat struct {
+	value float64
+	bits  int
+}
+
 type unknownTypeError struct {
 	typ reflect.Type
 }
