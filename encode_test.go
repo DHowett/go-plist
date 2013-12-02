@@ -106,6 +106,12 @@ var tests = []TestData{
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 163, 1, 2, 3, 16, 104, 16, 105, 16, 33, 8, 12, 14, 16, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18},
 	},
 	{
+		Name:        "Unsigned Integers of Increasing Size",
+		Data:        []uint64{0xff, 0xfff, 0xffff, 0xfffff, 0xffffff, 0xfffffff, 0xffffffff, 0xffffffffffffffff},
+		ExpectedXML: xmlPreamble + `<plist version="1.0"><array><integer>255</integer><integer>4095</integer><integer>65535</integer><integer>1048575</integer><integer>16777215</integer><integer>268435455</integer><integer>4294967295</integer><integer>18446744073709551615</integer></array></plist>`,
+		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 168, 1, 2, 3, 4, 5, 6, 7, 8, 16, 255, 17, 15, 255, 17, 255, 255, 18, 0, 15, 255, 255, 18, 0, 255, 255, 255, 18, 15, 255, 255, 255, 18, 255, 255, 255, 255, 19, 255, 255, 255, 255, 255, 255, 255, 255, 8, 17, 19, 22, 25, 30, 35, 40, 45, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 54},
+	},
+	{
 		Name:        "Boolean True",
 		Data:        true,
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><true></true></plist>`,
