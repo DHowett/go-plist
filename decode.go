@@ -32,6 +32,11 @@ type Decoder struct {
 //     map[string]interface{}, for plist dictionaries
 //
 // If a property list value is not appropriate for a given value type, Decode aborts immediately and returns an error.
+//
+// As Go does not support 128-bit types, and we don't want to pretend we're giving the user integer types (as opposed to
+// secretly passing them structs), we drop the high 64 bits of any 128-bit integers encoded in binary property lists.
+// 
+// This is important because CoreFoundation serializes some large 64-bit values as 128-bit values with an empty high half.
 func (p *Decoder) Decode(v interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {

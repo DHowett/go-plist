@@ -409,6 +409,12 @@ func (p *bplistValueDecoder) readSizedInt(nbytes int) uint64 {
 		var val uint64
 		binary.Read(p.reader, binary.BigEndian, &val)
 		return uint64(val)
+	case 16:
+		var high, low uint64
+		binary.Read(p.reader, binary.BigEndian, &high)
+		binary.Read(p.reader, binary.BigEndian, &low)
+		// TODO: int128 support (!)
+		return uint64(low)
 	}
 	panic(errors.New("illegal integer size"))
 }
