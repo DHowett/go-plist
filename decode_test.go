@@ -10,7 +10,7 @@ import (
 func BenchmarkXMLDecode(b *testing.B) {
 	ntests := 0
 	for _, test := range tests {
-		if test.SkipDecode || test.ExpectedBin == nil {
+		if test.SkipDecodeXML || test.SkipDecode || test.ExpectedXML == "" {
 			continue
 		}
 
@@ -107,11 +107,12 @@ func TestDecode(t *testing.T) {
 		//typ := testData.Type()
 
 		var err error
-		var bval interface{} = reflect.New(testData.Type()).Interface()
-		var xval interface{} = reflect.New(testData.Type()).Interface()
+		var bval interface{}
+		var xval interface{}
 		var val interface{}
 
 		if test.ExpectedBin != nil {
+			bval = reflect.New(testData.Type()).Interface()
 			buf := bytes.NewReader(test.ExpectedBin)
 			decoder := NewDecoder(buf)
 			err = decoder.Decode(bval)
@@ -126,7 +127,8 @@ func TestDecode(t *testing.T) {
 			}
 		}
 
-		if test.ExpectedXML != "" {
+		if !test.SkipDecodeXML && test.ExpectedXML != "" {
+			xval = reflect.New(testData.Type()).Interface()
 			buf := bytes.NewReader([]byte(test.ExpectedXML))
 			decoder := NewDecoder(buf)
 			err = decoder.Decode(xval)
