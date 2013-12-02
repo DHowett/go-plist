@@ -204,7 +204,13 @@ func (p *Decoder) valueInterface(pval *plistValue) interface{} {
 	case Integer:
 		return pval.value.(uint64)
 	case Real:
-		return pval.value.(sizedFloat).value
+		bits := pval.value.(sizedFloat).bits
+		switch bits {
+		case 32:
+			return float32(pval.value.(sizedFloat).value)
+		case 64:
+			return pval.value.(sizedFloat).value
+		}
 	case Boolean:
 		return pval.value.(bool)
 	case Array:

@@ -116,6 +116,7 @@ var tests = []TestData{
 		Data:        []interface{}{float32(math.MaxFloat32), float64(math.MaxFloat64)},
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><array><real>3.4028234663852886e+38</real><real>1.7976931348623157e+308</real></array></plist>`,
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 162, 1, 2, 34, 127, 127, 255, 255, 35, 127, 239, 255, 255, 255, 255, 255, 255, 8, 11, 16, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 25},
+		SkipDecode: true,
 	},
 	{
 		Name:        "Boolean True",
