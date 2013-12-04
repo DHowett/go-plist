@@ -27,6 +27,42 @@ type SparseBundleHeader struct {
 	Size                  uint64 `plist:"size"`
 }
 
+type TextMarshalingBool struct {
+	b bool
+}
+
+func (b TextMarshalingBool) MarshalText() ([]byte, error) {
+	if b.b {
+		return []byte("truthful"), nil
+	}
+	return []byte("non-factual"), nil
+}
+
+func (b TextMarshalingBool) UnmarshalText(text []byte) error {
+	if string(text) == "truthful" {
+		b.b = true
+	}
+	return nil
+}
+
+type TextMarshalingBoolViaPointer struct {
+	b bool
+}
+
+func (b *TextMarshalingBoolViaPointer) MarshalText() ([]byte, error) {
+	if b.b {
+		return []byte("plausible"), nil
+	}
+	return []byte("unimaginable"), nil
+}
+
+func (b *TextMarshalingBoolViaPointer) UnmarshalText(text []byte) error {
+	if string(text) == "plausible" {
+		b.b = true
+	}
+	return nil
+}
+
 var xmlPreamble string = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">`
 
@@ -245,6 +281,21 @@ var tests = []TestData{
 		Data:        []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><array><integer>1</integer><integer>2</integer><integer>3</integer><integer>4</integer><integer>5</integer><integer>6</integer><integer>7</integer><integer>8</integer><integer>9</integer><integer>10</integer><integer>11</integer><integer>12</integer><integer>13</integer><integer>14</integer><integer>15</integer><integer>16</integer></array></plist>`,
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 175, 16, 16, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 16, 1, 16, 2, 16, 3, 16, 4, 16, 5, 16, 6, 16, 7, 16, 8, 16, 9, 16, 10, 16, 11, 16, 12, 16, 13, 16, 14, 16, 15, 16, 16, 8, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 59},
+	},
+	{
+		Name:        "TextMarshaler/TextUnmarshaler",
+		Data:        TextMarshalingBool{true},
+		ExpectedXML: xmlPreamble + `<plist version="1.0"><string>truthful</string></plist>`,
+		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 88, 116, 114, 117, 116, 104, 102, 117, 108, 8, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17},
+		// We expect false here because the non-pointer version cannot mutate itself.
+		DecodeData: TextMarshalingBool{false},
+	},
+	{
+		Name:        "TextMarshaler/TextUnmarshaler via Pointer",
+		Data:        &TextMarshalingBoolViaPointer{false},
+		ExpectedXML: xmlPreamble + `<plist version="1.0"><string>unimaginable</string></plist>`,
+		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 92, 117, 110, 105, 109, 97, 103, 105, 110, 97, 98, 108, 101, 8, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21},
+		DecodeData:  TextMarshalingBoolViaPointer{false},
 	},
 }
 
