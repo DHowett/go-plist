@@ -114,8 +114,6 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 		p.unmarshalArray(pval, val)
 	case Dictionary:
 		p.unmarshalDictionary(pval, val)
-	default:
-		panic(fmt.Errorf("unsupported plist type %v", plistKindNames[pval.kind]))
 	}
 }
 
@@ -215,8 +213,6 @@ func (p *Decoder) valueInterface(pval *plistValue) interface{} {
 		return pval.value.([]byte)
 	case Date:
 		return pval.value.(time.Time)
-	default:
-		panic(fmt.Errorf("unsupported plist type %v", plistKindNames[pval.kind]))
 	}
 	return nil
 }
