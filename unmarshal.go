@@ -25,7 +25,10 @@ func isEmptyInterface(v reflect.Value) bool {
 }
 
 func (p *Decoder) unmarshalTextInterface(pval *plistValue, unmarshalable encoding.TextUnmarshaler) {
-	unmarshalable.UnmarshalText([]byte(pval.value.(string)))
+	err := unmarshalable.UnmarshalText([]byte(pval.value.(string)))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (p *Decoder) unmarshalTime(pval *plistValue, val reflect.Value) {
