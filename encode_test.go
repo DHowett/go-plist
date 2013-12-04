@@ -141,6 +141,40 @@ var tests = []TestData{
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 210, 1, 3, 2, 4, 85, 102, 108, 111, 97, 116, 35, 63, 240, 0, 0, 0, 0, 0, 0, 86, 117, 105, 110, 116, 54, 52, 16, 1, 8, 13, 19, 28, 35, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 37},
 	},
 	{
+		Name: "Map (containing all variations of all types)",
+		Data: interface{}(map[string]interface{}{
+			"intarray": []interface{}{
+				int(1),
+				int8(8),
+				int16(16),
+				int32(32),
+				int64(64),
+				uint(2),
+				uint8(9),
+				uint16(17),
+				uint32(33),
+				uint64(65),
+			},
+			"floats": []interface{}{
+				float32(32.0),
+				float64(64.0),
+			},
+			"booleans": []bool{
+				true,
+				false,
+			},
+			"strings": []string{
+				"Hello, ASCII",
+				"Hello, 世界",
+			},
+			"data": []byte{1, 2, 3, 4},
+			"date": time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC),
+		}),
+		ExpectedXML: xmlPreamble + `<plist version="1.0"><dict><key>intarray</key><array><integer>1</integer><integer>8</integer><integer>16</integer><integer>32</integer><integer>64</integer><integer>2</integer><integer>9</integer><integer>17</integer><integer>33</integer><integer>65</integer></array><key>floats</key><array><real>32</real><real>64</real></array><key>booleans</key><array><true></true><false></false></array><key>strings</key><array><string>Hello, ASCII</string><string>Hello, 世界</string></array><key>data</key><data>AQIDBA==</data><key>date</key><date>2013-11-27T00:34:00Z</date></dict></plist>`,
+		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 214, 1, 13, 17, 21, 25, 27, 2, 14, 18, 22, 26, 28, 88, 105, 110, 116, 97, 114, 114, 97, 121, 170, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 1, 16, 8, 16, 16, 16, 32, 16, 64, 16, 2, 16, 9, 16, 17, 16, 33, 16, 65, 86, 102, 108, 111, 97, 116, 115, 162, 15, 16, 34, 66, 0, 0, 0, 35, 64, 80, 0, 0, 0, 0, 0, 0, 88, 98, 111, 111, 108, 101, 97, 110, 115, 162, 19, 20, 9, 8, 87, 115, 116, 114, 105, 110, 103, 115, 162, 23, 24, 92, 72, 101, 108, 108, 111, 44, 32, 65, 83, 67, 73, 73, 105, 0, 72, 0, 101, 0, 108, 0, 108, 0, 111, 0, 44, 0, 32, 78, 22, 117, 76, 84, 100, 97, 116, 97, 68, 1, 2, 3, 4, 84, 100, 97, 116, 101, 51, 65, 184, 69, 117, 120, 0, 0, 0, 8, 21, 30, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 68, 71, 76, 85, 94, 97, 98, 99, 107, 110, 123, 142, 147, 152, 157, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 166},
+		SkipDecode:  true,
+	},
+	{
 		Name: "Map (containing nil)",
 		Data: map[string]interface{}{
 			"float":  1.5,
