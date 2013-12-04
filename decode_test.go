@@ -23,8 +23,8 @@ func BenchmarkXMLDecode(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N/ntests; i++ {
-		b.StopTimer()
 		for _, test := range tests {
+			b.StopTimer()
 			if test.SkipDecode || test.ExpectedXML == "" {
 				continue
 			}
@@ -40,6 +40,7 @@ func BenchmarkXMLDecode(b *testing.B) {
 			b.StartTimer()
 			decoder := NewDecoder(buf)
 			decoder.Decode(bval)
+			b.StopTimer()
 		}
 	}
 }
@@ -60,8 +61,8 @@ func BenchmarkBinaryDecode(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N/ntests; i++ {
-		b.StopTimer()
 		for _, test := range tests {
+			b.StopTimer()
 			if test.SkipDecode || test.ExpectedBin == nil {
 				continue
 			}
@@ -77,6 +78,7 @@ func BenchmarkBinaryDecode(b *testing.B) {
 			b.StartTimer()
 			decoder := NewDecoder(buf)
 			decoder.Decode(bval)
+			b.StopTimer()
 		}
 	}
 }
