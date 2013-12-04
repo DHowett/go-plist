@@ -27,6 +27,24 @@ type SparseBundleHeader struct {
 	Size                  uint64 `plist:"size"`
 }
 
+type EmbedA struct {
+	EmbedC
+	EmbedB EmbedB
+	FieldA string
+}
+
+type EmbedB struct {
+	FieldB string
+	*EmbedC
+}
+
+type EmbedC struct {
+	FieldA1 string `plist:"FieldA"`
+	FieldA2 string
+	FieldB  string
+	FieldC  string
+}
+
 type TextMarshalingBool struct {
 	b bool
 }
@@ -155,6 +173,30 @@ var tests = []TestData{
 			Notempty: 10,
 		},
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string><key>Notempty</key><integer>10</integer></dict></plist>`,
+		ExpectedBin: nil,
+	},
+	{
+		Name: "Structure with Anonymous Embeds",
+		Data: EmbedA{
+			EmbedC: EmbedC{
+				FieldA1: "",
+				FieldA2: "",
+				FieldB:  "A.C.B",
+				FieldC:  "A.C.C",
+			},
+			EmbedB: EmbedB{
+				FieldB: "A.B.B",
+				EmbedC: &EmbedC{
+					FieldA1: "A.B.C.A1",
+					FieldA2: "A.B.C.A2",
+					FieldB:  "", // Shadowed by A.B.B
+					FieldC:  "A.B.C.C",
+				},
+			},
+			FieldA: "A.A",
+		},
+		SkipDecode:  false,
+		ExpectedXML: xmlPreamble + `<plist version="1.0"><dict><key>FieldA2</key><string></string><key>FieldB</key><string>A.C.B</string><key>FieldC</key><string>A.C.C</string><key>EmbedB</key><dict><key>FieldB</key><string>A.B.B</string><key>FieldA</key><string>A.B.C.A1</string><key>FieldA2</key><string>A.B.C.A2</string><key>FieldC</key><string>A.B.C.C</string></dict><key>FieldA</key><string>A.A</string></dict></plist>`,
 		ExpectedBin: nil,
 	},
 	{
