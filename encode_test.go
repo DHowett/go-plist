@@ -125,6 +125,39 @@ var tests = []TestData{
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 209, 1, 2, 84, 78, 97, 109, 101, 86, 68, 117, 115, 116, 105, 110, 8, 11, 16, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23},
 	},
 	{
+		Name: "Basic Structure with empty omitempty fields",
+		Data: struct {
+			Name      string
+			Age       int     `plist:"age,omitempty"`
+			Slice     []int   `plist:",omitempty"`
+			Bool      bool    `plist:",omitempty"`
+			Uint      uint    `plist:",omitempty"`
+			Float32   float32 `plist:",omitempty"`
+			Float64   float64 `plist:",omitempty"`
+			Stringptr *string `plist:",omitempty"`
+			Notempty  uint    `plist:",omitempty"`
+		}{
+			Name:     "Dustin",
+			Notempty: 10,
+		},
+		DecodeData: struct {
+			Name      string
+			Age       int     `plist:"age,omitempty"`
+			Slice     []int   `plist:",omitempty"`
+			Bool      bool    `plist:",omitempty"`
+			Uint      uint    `plist:",omitempty"`
+			Float32   float32 `plist:",omitempty"`
+			Float64   float64 `plist:",omitempty"`
+			Stringptr *string `plist:",omitempty"`
+			Notempty  uint    `plist:",omitempty"`
+		}{
+			Name:     "Dustin",
+			Notempty: 10,
+		},
+		ExpectedXML: xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string><key>Notempty</key><integer>10</integer></dict></plist>`,
+		ExpectedBin: nil,
+	},
+	{
 		Name:        "Arbitrary Byte Data",
 		Data:        []byte{'h', 'e', 'l', 'l', 'o'},
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><data>aGVsbG8=</data></plist>`,
