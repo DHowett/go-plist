@@ -34,7 +34,7 @@ func (p *Encoder) marshalTextInterface(marshalable encoding.TextMarshaler) *plis
 	if err != nil {
 		panic(err)
 	}
-	return &plistValue{String, s}
+	return &plistValue{String, string(s)}
 }
 
 func (p *Encoder) marshalStruct(typ reflect.Type, val reflect.Value) *plistValue {
