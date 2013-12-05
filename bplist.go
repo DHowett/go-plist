@@ -36,7 +36,7 @@ const (
 	bpTagDictionary        = 0xD0
 )
 
-type bplistValueEncoder struct {
+type bplistGenerator struct {
 	writer   *countedWriter
 	uniqmap  map[interface{}]uint64
 	objmap   map[*plistValue]uint64
@@ -45,7 +45,7 @@ type bplistValueEncoder struct {
 	trailer  bplistTrailer
 }
 
-func (p *bplistValueEncoder) flattenPlistValue(pval *plistValue) {
+func (p *bplistGenerator) flattenPlistValue(pval *plistValue) {
 	switch pval.kind {
 	case String, Integer, Real, Date:
 		if _, ok := p.uniqmap[pval.value]; ok {
@@ -84,7 +84,7 @@ func (p *bplistValueEncoder) flattenPlistValue(pval *plistValue) {
 	}
 }
 
-func (p *bplistValueEncoder) indexForPlistValue(pval *plistValue) (uint64, bool) {
+func (p *bplistGenerator) indexForPlistValue(pval *plistValue) (uint64, bool) {
 	var v uint64
 	var ok bool
 	switch pval.kind {
@@ -98,7 +98,7 @@ func (p *bplistValueEncoder) indexForPlistValue(pval *plistValue) (uint64, bool)
 	return v, ok
 }
 
-func (p *bplistValueEncoder) encodeDocument(rootpval *plistValue) {
+func (p *bplistGenerator) generateDocument(rootpval *plistValue) {
 	p.objtable = make([]*plistValue, 0, 15)
 	p.uniqmap = make(map[interface{}]uint64)
 	p.objmap = make(map[*plistValue]uint64)
@@ -112,7 +112,7 @@ func (p *bplistValueEncoder) encodeDocument(rootpval *plistValue) {
 	offtable := make([]uint64, p.trailer.NumObjects)
 	for i, pval := range p.objtable {
 		offtable[i] = uint64(p.writer.BytesWritten())
-		p.encodePlistValue(pval)
+		p.writePlistValue(pval)
 	}
 
 	p.trailer.OffsetIntSize = uint8(minimumSizeForInt(uint64(p.writer.BytesWritten())))
@@ -126,7 +126,7 @@ func (p *bplistValueEncoder) encodeDocument(rootpval *plistValue) {
 	binary.Write(p.writer, binary.BigEndian, p.trailer)
 }
 
-func (p *bplistValueEncoder) encodePlistValue(pval *plistValue) {
+func (p *bplistGenerator) writePlistValue(pval *plistValue) {
 	if pval == nil {
 		return
 	}
@@ -165,7 +165,7 @@ func minimumSizeForInt(n uint64) int {
 	panic(errors.New("illegal integer size"))
 }
 
-func (p *bplistValueEncoder) writeSizedInt(n uint64, nbytes int) {
+func (p *bplistGenerator) writeSizedInt(n uint64, nbytes int) {
 	var val interface{}
 	switch nbytes {
 	case 1:
@@ -185,7 +185,7 @@ func (p *bplistValueEncoder) writeSizedInt(n uint64, nbytes int) {
 	}
 }
 
-func (p *bplistValueEncoder) writeBoolTag(v bool) {
+func (p *bplistGenerator) writeBoolTag(v bool) {
 	tag := uint8(bpTagBoolFalse)
 	if v {
 		tag = bpTagBoolTrue
@@ -196,7 +196,7 @@ func (p *bplistValueEncoder) writeBoolTag(v bool) {
 	}
 }
 
-func (p *bplistValueEncoder) writeIntTag(n uint64) {
+func (p *bplistGenerator) writeIntTag(n uint64) {
 	var tag uint8
 	var val interface{}
 	switch {
@@ -224,7 +224,7 @@ func (p *bplistValueEncoder) writeIntTag(n uint64) {
 	}
 }
 
-func (p *bplistValueEncoder) writeRealTag(n float64, bits int) {
+func (p *bplistGenerator) writeRealTag(n float64, bits int) {
 	var tag uint8 = bpTagReal | 0x3
 	var val interface{} = n
 	if bits == 32 {
@@ -242,7 +242,7 @@ func (p *bplistValueEncoder) writeRealTag(n float64, bits int) {
 	}
 }
 
-func (p *bplistValueEncoder) writeDateTag(t time.Time) {
+func (p *bplistGenerator) writeDateTag(t time.Time) {
 	tag := uint8(bpTagDate) | 0x3
 	val := float64(t.In(time.UTC).UnixNano()) / float64(time.Second)
 	val -= 978307200 // Adjust to Apple Epoch
@@ -257,7 +257,7 @@ func (p *bplistValueEncoder) writeDateTag(t time.Time) {
 	}
 }
 
-func (p *bplistValueEncoder) writeCountedTag(tag uint8, count uint64) {
+func (p *bplistGenerator) writeCountedTag(tag uint8, count uint64) {
 	marker := tag
 	if count > 0xF {
 		marker |= 0xF
@@ -275,7 +275,7 @@ func (p *bplistValueEncoder) writeCountedTag(tag uint8, count uint64) {
 	}
 }
 
-func (p *bplistValueEncoder) writeDataTag(data []byte) {
+func (p *bplistGenerator) writeDataTag(data []byte) {
 	p.writeCountedTag(bpTagData, uint64(len(data)))
 	err := binary.Write(p.writer, binary.BigEndian, data)
 	if err != nil {
@@ -283,7 +283,7 @@ func (p *bplistValueEncoder) writeDataTag(data []byte) {
 	}
 }
 
-func (p *bplistValueEncoder) writeStringTag(str string) {
+func (p *bplistGenerator) writeStringTag(str string) {
 	var err error
 	for _, r := range str {
 		if r > 0xFF {
@@ -302,7 +302,7 @@ func (p *bplistValueEncoder) writeStringTag(str string) {
 	}
 }
 
-func (p *bplistValueEncoder) writeDictionaryTag(dict map[string]*plistValue) {
+func (p *bplistGenerator) writeDictionaryTag(dict map[string]*plistValue) {
 	p.writeCountedTag(bpTagDictionary, uint64(len(dict)))
 	vals := make([]uint64, len(dict)*2)
 	cnt := len(dict)
@@ -328,7 +328,7 @@ func (p *bplistValueEncoder) writeDictionaryTag(dict map[string]*plistValue) {
 	}
 }
 
-func (p *bplistValueEncoder) writeArrayTag(arr []*plistValue) {
+func (p *bplistGenerator) writeArrayTag(arr []*plistValue) {
 	p.writeCountedTag(bpTagArray, uint64(len(arr)))
 	for _, v := range arr {
 		objIdx, ok := p.indexForPlistValue(v)
@@ -340,13 +340,13 @@ func (p *bplistValueEncoder) writeArrayTag(arr []*plistValue) {
 	}
 }
 
-func newBplistValueEncoder(w io.Writer) *bplistValueEncoder {
-	return &bplistValueEncoder{
+func newBplistGenerator(w io.Writer) *bplistGenerator {
+	return &bplistGenerator{
 		writer: &countedWriter{Writer: w},
 	}
 }
 
-type bplistValueDecoder struct {
+type bplistParser struct {
 	reader   io.ReadSeeker
 	version  int
 	buf      []byte
@@ -355,7 +355,7 @@ type bplistValueDecoder struct {
 	trailer  bplistTrailer
 }
 
-func (p *bplistValueDecoder) decodeDocument() *plistValue {
+func (p *bplistParser) parseDocument() *plistValue {
 	magic := make([]byte, 6)
 	ver := make([]byte, 2)
 	p.reader.Seek(0, 0)
@@ -391,7 +391,7 @@ func (p *bplistValueDecoder) decodeDocument() *plistValue {
 	return p.valueAtOffset(p.offtable[p.trailer.TopObject])
 }
 
-func (p *bplistValueDecoder) readSizedInt(nbytes int) uint64 {
+func (p *bplistParser) readSizedInt(nbytes int) uint64 {
 	switch nbytes {
 	case 1:
 		var val uint8
@@ -419,7 +419,7 @@ func (p *bplistValueDecoder) readSizedInt(nbytes int) uint64 {
 	panic(errors.New("illegal integer size"))
 }
 
-func (p *bplistValueDecoder) countForTag(tag uint8) uint64 {
+func (p *bplistParser) countForTag(tag uint8) uint64 {
 	cnt := uint64(tag & 0x0F)
 	if cnt == 0xF {
 		var intTag uint8
@@ -429,18 +429,18 @@ func (p *bplistValueDecoder) countForTag(tag uint8) uint64 {
 	return cnt
 }
 
-func (p *bplistValueDecoder) valueAtOffset(off uint64) *plistValue {
+func (p *bplistParser) valueAtOffset(off uint64) *plistValue {
 	if pval, ok := p.objrefs[off]; ok {
 		return pval
 	} else {
-		pval := p.decodeTagAtOffset(int64(off))
+		pval := p.parseTagAtOffset(int64(off))
 		p.objrefs[off] = pval
 		return pval
 	}
 	return nil
 }
 
-func (p *bplistValueDecoder) decodeTagAtOffset(off int64) *plistValue {
+func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 	var tag uint8
 	p.reader.Seek(off, 0)
 	binary.Read(p.reader, binary.BigEndian, &tag)
@@ -529,6 +529,6 @@ func (p *bplistValueDecoder) decodeTagAtOffset(off int64) *plistValue {
 	return nil
 }
 
-func newBplistValueDecoder(r io.ReadSeeker) *bplistValueDecoder {
-	return &bplistValueDecoder{reader: r}
+func newBplistParser(r io.ReadSeeker) *bplistParser {
+	return &bplistParser{reader: r}
 }

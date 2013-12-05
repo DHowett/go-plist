@@ -13,12 +13,12 @@ import (
 
 const xmlDOCTYPE = `DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"`
 
-type xmlPlistValueEncoder struct {
+type xmlPlistGenerator struct {
 	writer     io.Writer
 	xmlEncoder *xml.Encoder
 }
 
-func (p *xmlPlistValueEncoder) encodeDocument(pval *plistValue) {
+func (p *xmlPlistGenerator) generateDocument(pval *plistValue) {
 	p.writer.Write([]byte(xml.Header))
 	p.xmlEncoder.EncodeToken(xml.Directive(xmlDOCTYPE))
 
@@ -38,13 +38,13 @@ func (p *xmlPlistValueEncoder) encodeDocument(pval *plistValue) {
 
 	p.xmlEncoder.EncodeToken(plistStartElement)
 
-	p.encodePlistValue(pval)
+	p.writePlistValue(pval)
 
 	p.xmlEncoder.EncodeToken(plistStartElement.End())
 	p.xmlEncoder.Flush()
 }
 
-func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) {
+func (p *xmlPlistGenerator) writePlistValue(pval *plistValue) {
 	if pval == nil {
 		return
 	}
@@ -60,7 +60,7 @@ func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) {
 		values := encodedValue.(map[string]*plistValue)
 		for k, v := range values {
 			p.xmlEncoder.EncodeElement(k, xml.StartElement{Name: xml.Name{Local: "key"}})
-			p.encodePlistValue(v)
+			p.writePlistValue(v)
 		}
 		p.xmlEncoder.EncodeToken(startElement.End())
 	case Array:
@@ -68,7 +68,7 @@ func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) {
 		p.xmlEncoder.EncodeToken(startElement)
 		values := encodedValue.([]*plistValue)
 		for _, v := range values {
-			p.encodePlistValue(v)
+			p.writePlistValue(v)
 		}
 		p.xmlEncoder.EncodeToken(startElement.End())
 	case String:
@@ -108,20 +108,20 @@ func (p *xmlPlistValueEncoder) encodePlistValue(pval *plistValue) {
 	}
 }
 
-func newXMLPlistValueEncoder(w io.Writer) *xmlPlistValueEncoder {
-	return &xmlPlistValueEncoder{w, xml.NewEncoder(w)}
+func newXMLPlistGenerator(w io.Writer) *xmlPlistGenerator {
+	return &xmlPlistGenerator{w, xml.NewEncoder(w)}
 }
 
-type xmlPlistValueDecoder struct {
+type xmlPlistParser struct {
 	reader     io.Reader
 	xmlDecoder *xml.Decoder
 }
 
-func (p *xmlPlistValueDecoder) decodeDocument() *plistValue {
+func (p *xmlPlistParser) parseDocument() *plistValue {
 	for {
 		if token, err := p.xmlDecoder.Token(); err == nil {
 			if element, ok := token.(xml.StartElement); ok {
-				return p.decodeXMLElement(element)
+				return p.parseXMLElement(element)
 			}
 		} else {
 			panic(err)
@@ -129,7 +129,7 @@ func (p *xmlPlistValueDecoder) decodeDocument() *plistValue {
 	}
 }
 
-func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) *plistValue {
+func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 	var charData xml.CharData
 	switch element.Name.Local {
 	case "plist":
@@ -144,7 +144,7 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) *plist
 			}
 
 			if el, ok := token.(xml.StartElement); ok {
-				return p.decodeXMLElement(el)
+				return p.parseXMLElement(el)
 			}
 		}
 	case "string":
@@ -229,7 +229,7 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) *plist
 					if key == "" {
 						panic(errors.New("missing key in dictionary"))
 					}
-					subvalues[key] = p.decodeXMLElement(el)
+					subvalues[key] = p.parseXMLElement(el)
 				}
 			}
 		}
@@ -247,7 +247,7 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) *plist
 			}
 
 			if el, ok := token.(xml.StartElement); ok {
-				subvalues = append(subvalues, p.decodeXMLElement(el))
+				subvalues = append(subvalues, p.parseXMLElement(el))
 			}
 		}
 		return &plistValue{Array, subvalues}
@@ -257,6 +257,6 @@ func (p *xmlPlistValueDecoder) decodeXMLElement(element xml.StartElement) *plist
 	return nil
 }
 
-func newXMLPlistValueDecoder(r io.Reader) *xmlPlistValueDecoder {
-	return &xmlPlistValueDecoder{r, xml.NewDecoder(r)}
+func newXMLPlistParser(r io.Reader) *xmlPlistParser {
+	return &xmlPlistParser{r, xml.NewDecoder(r)}
 }

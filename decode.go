@@ -8,13 +8,13 @@ import (
 	"runtime"
 )
 
-type plistValueDecoder interface {
-	decodeDocument() *plistValue
+type parser interface {
+	parseDocument() *plistValue
 }
 
 // A decoder reads a property list from an input stream.
 type Decoder struct {
-	valueDecoder plistValueDecoder
+	parser parser
 }
 
 // Decode parses a property list document and stores the result in the value pointed to by v.
@@ -35,7 +35,7 @@ type Decoder struct {
 //
 // As Go does not support 128-bit types, and we don't want to pretend we're giving the user integer types (as opposed to
 // secretly passing them structs), we drop the high 64 bits of any 128-bit integers encoded in binary property lists.
-// 
+//
 // This is important because CoreFoundation serializes some large 64-bit values as 128-bit values with an empty high half.
 func (p *Decoder) Decode(v interface{}) (err error) {
 	defer func() {
@@ -47,14 +47,14 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 		}
 	}()
 
-	pval := p.valueDecoder.decodeDocument()
+	pval := p.parser.parseDocument()
 	p.unmarshal(pval, reflect.ValueOf(v))
 	return
 }
 
-type noopDecoder struct{}
+type noopParser struct{}
 
-func (p *noopDecoder) decodeDocument() *plistValue {
+func (p *noopParser) parseDocument() *plistValue {
 	panic(errors.New("invalid property list document format"))
 }
 
@@ -67,14 +67,14 @@ func NewDecoder(r io.ReadSeeker) *Decoder {
 	r.Read(header)
 	r.Seek(0, 0)
 
-	var decoder plistValueDecoder
+	var parser parser
 
 	if bytes.Equal(header, []byte("bplist0")) {
-		decoder = newBplistValueDecoder(r)
+		parser = newBplistParser(r)
 	} else if bytes.Contains(header, []byte("<")) {
-		decoder = newXMLPlistValueDecoder(r)
+		parser = newXMLPlistParser(r)
 	} else {
-		decoder = &noopDecoder{}
+		parser = &noopParser{}
 	}
-	return &Decoder{decoder}
+	return &Decoder{parser}
 }

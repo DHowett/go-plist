@@ -11,15 +11,14 @@ import (
 	"runtime"
 )
 
-type plistValueEncoder interface {
-	encodeDocument(*plistValue)
-	encodePlistValue(*plistValue)
+type generator interface {
+	generateDocument(*plistValue)
 }
 
 // An Encoder writes a property list to an output stream.
 type Encoder struct {
-	writer       io.Writer
-	valueEncoder plistValueEncoder
+	writer    io.Writer
+	generator generator
 }
 
 // Encode writes the property list encoding of v to the connection.
@@ -68,14 +67,14 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 		panic(errors.New("no root element to encode"))
 	}
 
-	p.valueEncoder.encodeDocument(pval)
+	p.generator.generateDocument(pval)
 	return
 }
 
 // NewEncoder returns an Encoder that writes an XML property list to w.
 func NewEncoder(w io.Writer) *Encoder {
 	p := &Encoder{
-		valueEncoder: newXMLPlistValueEncoder(w),
+		generator: newXMLPlistGenerator(w),
 	}
 	return p
 }
@@ -83,7 +82,7 @@ func NewEncoder(w io.Writer) *Encoder {
 // NewBinaryEncoder returns an Encoder that writes a binary property list to w.
 func NewBinaryEncoder(w io.Writer) *Encoder {
 	p := &Encoder{
-		valueEncoder: newBplistValueEncoder(w),
+		generator: newBplistGenerator(w),
 	}
 	return p
 }
