@@ -6,32 +6,14 @@ import (
 	"time"
 )
 
-func BenchmarkStructTypeMarshal(b *testing.B) {
-	type Data struct {
-		Intarray []uint64  `plist:"intarray"`
-		Floats   []float64 `plist:"floats"`
-		Booleans []bool    `plist:"booleans"`
-		Strings  []string  `plist:"strings"`
-		Dat      []byte    `plist:"data"`
-		Date     time.Time `plist:"date"`
-	}
-	data := &Data{
-		Intarray: []uint64{1, 8, 16, 32, 64, 2, 9, 17, 33, 65},
-		Floats:   []float64{32.0, 64.0},
-		Booleans: []bool{true, false},
-		Strings:  []string{"Hello, ASCII", "Hello, 世界"},
-		Dat:      []byte{1, 2, 3, 4},
-		Date:     time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC),
-	}
-	setupData()
-	b.ResetTimer()
+func BenchmarkStructMarshal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		e := &Encoder{}
-		e.marshal(reflect.ValueOf(data))
+		e.marshal(reflect.ValueOf(plistValueTreeRawData))
 	}
 }
 
-func BenchmarkMapTypeMarshal(b *testing.B) {
+func BenchmarkMapMarshal(b *testing.B) {
 	data := map[string]interface{}{
 		"intarray": []interface{}{
 			int(1),

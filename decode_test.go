@@ -8,78 +8,26 @@ import (
 )
 
 func BenchmarkXMLDecode(b *testing.B) {
-	ntests := 0
-	for _, test := range tests {
-		if test.SkipDecodeXML || test.SkipDecode || test.ExpectedXML == "" {
-			continue
-		}
-
-		testData := reflect.ValueOf(test.Data)
-		if !testData.IsValid() || isEmptyInterface(testData) {
-			continue
-		}
-		ntests++
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N/ntests; i++ {
-		for _, test := range tests {
-			b.StopTimer()
-			if test.SkipDecode || test.ExpectedXML == "" {
-				continue
-			}
-
-			testData := reflect.ValueOf(test.Data)
-			if !testData.IsValid() || isEmptyInterface(testData) {
-				continue
-			}
-
-			var bval interface{} = reflect.New(testData.Type()).Interface()
-
-			buf := bytes.NewReader([]byte(test.ExpectedXML))
-			b.StartTimer()
-			decoder := NewDecoder(buf)
-			decoder.Decode(bval)
-			b.StopTimer()
-		}
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		var bval interface{}
+		buf := bytes.NewReader([]byte(plistValueTreeAsXML))
+		b.StartTimer()
+		decoder := NewDecoder(buf)
+		decoder.Decode(bval)
+		b.StopTimer()
 	}
 }
 
-func BenchmarkBinaryDecode(b *testing.B) {
-	ntests := 0
-	for _, test := range tests {
-		if test.SkipDecode || test.ExpectedBin == nil {
-			continue
-		}
-
-		testData := reflect.ValueOf(test.Data)
-		if !testData.IsValid() || isEmptyInterface(testData) {
-			continue
-		}
-		ntests++
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N/ntests; i++ {
-		for _, test := range tests {
-			b.StopTimer()
-			if test.SkipDecode || test.ExpectedBin == nil {
-				continue
-			}
-
-			testData := reflect.ValueOf(test.Data)
-			if !testData.IsValid() || isEmptyInterface(testData) {
-				continue
-			}
-
-			var bval interface{} = reflect.New(testData.Type()).Interface()
-
-			buf := bytes.NewReader(test.ExpectedBin)
-			b.StartTimer()
-			decoder := NewDecoder(buf)
-			decoder.Decode(bval)
-			b.StopTimer()
-		}
+func BenchmarkBplistDecode(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		var bval interface{}
+		buf := bytes.NewReader(plistValueTreeAsBplist)
+		b.StartTimer()
+		decoder := NewDecoder(buf)
+		decoder.Decode(bval)
+		b.StopTimer()
 	}
 }
 
