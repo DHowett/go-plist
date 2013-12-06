@@ -60,7 +60,7 @@ func (b TextMarshalingBool) MarshalText() ([]byte, error) {
 	return []byte("non-factual"), nil
 }
 
-func (b TextMarshalingBool) UnmarshalText(text []byte) error {
+func (b *TextMarshalingBool) UnmarshalText(text []byte) error {
 	if string(text) == "truthful" {
 		b.b = true
 	}
@@ -368,7 +368,6 @@ var tests = []TestData{
 		ExpectedXML: xmlPreamble + `<plist version="1.0"><string>truthful</string></plist>`,
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 88, 116, 114, 117, 116, 104, 102, 117, 108, 8, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17},
 		// We expect false here because the non-pointer version cannot mutate itself.
-		DecodeData: TextMarshalingBool{false},
 	},
 	{
 		Name:        "TextMarshaler/TextUnmarshaler via Pointer",
