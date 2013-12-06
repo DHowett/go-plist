@@ -50,16 +50,16 @@ func TestEncode(t *testing.T) {
 				t.Logf("Expected: Error")
 			} else {
 				if test.ExpectedXML != "" {
-					t.Log("Expected X:", test.ExpectedXML)
+					t.Logf("Expected X: %s\n", test.ExpectedXML)
 				}
 				if test.ExpectedBin != nil {
-					t.Log("Expected B:", test.ExpectedBin)
+					t.Logf("Expected B: %#v\n", test.ExpectedBin)
 				}
 			}
 
 			if err == nil {
-				t.Log("Received X:", buf.String())
-				t.Log("Received B:", bbuf.Bytes())
+				t.Logf("Received X: %s\n", buf.String())
+				t.Logf("Received B: %#v\n", bbuf.Bytes())
 			} else {
 				t.Log("   Error:", err)
 			}
