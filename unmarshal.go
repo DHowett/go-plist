@@ -164,7 +164,7 @@ func (p *Decoder) unmarshalDictionary(pval *plistValue, val reflect.Value) error
 			return err
 		}
 
-		subvalues := pval.value.(map[string]*plistValue)
+		subvalues := pval.value.(*dictionary).m
 		for _, finfo := range tinfo.fields {
 			p.unmarshal(subvalues[finfo.name], finfo.value(val))
 		}
@@ -174,7 +174,7 @@ func (p *Decoder) unmarshalDictionary(pval *plistValue, val reflect.Value) error
 			val.Set(reflect.MakeMap(typ))
 		}
 
-		subvalues := pval.value.(map[string]*plistValue)
+		subvalues := pval.value.(*dictionary).m
 		for k, sval := range subvalues {
 			keyv := reflect.ValueOf(k).Convert(typ.Key())
 			mapElem := val.MapIndex(keyv)
@@ -211,7 +211,7 @@ func (p *Decoder) valueInterface(pval *plistValue) interface{} {
 	case Array:
 		return p.arrayInterface(pval.value.([]*plistValue))
 	case Dictionary:
-		return p.mapInterface(pval.value.(map[string]*plistValue))
+		return p.dictionaryInterface(pval.value.(*dictionary))
 	case Data:
 		return pval.value.([]byte)
 	case Date:
@@ -228,9 +228,9 @@ func (p *Decoder) arrayInterface(subvalues []*plistValue) []interface{} {
 	return out
 }
 
-func (p *Decoder) mapInterface(subvalues map[string]*plistValue) map[string]interface{} {
+func (p *Decoder) dictionaryInterface(dict *dictionary) map[string]interface{} {
 	out := make(map[string]interface{})
-	for k, subv := range subvalues {
+	for k, subv := range dict.m {
 		out[k] = p.valueInterface(subv)
 	}
 	return out

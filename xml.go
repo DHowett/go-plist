@@ -57,10 +57,11 @@ func (p *xmlPlistGenerator) writePlistValue(pval *plistValue) {
 	case Dictionary:
 		startElement := xml.StartElement{Name: xml.Name{Local: "dict"}}
 		p.xmlEncoder.EncodeToken(startElement)
-		values := encodedValue.(map[string]*plistValue)
-		for k, v := range values {
+		dict := encodedValue.(*dictionary)
+		dict.populateArrays()
+		for i, k := range dict.keys {
 			p.xmlEncoder.EncodeElement(k, xml.StartElement{Name: xml.Name{Local: "key"}})
-			p.writePlistValue(v)
+			p.writePlistValue(dict.values[i])
 		}
 		p.xmlEncoder.EncodeToken(startElement.End())
 	case Array:
@@ -233,7 +234,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 				}
 			}
 		}
-		return &plistValue{Dictionary, subvalues}
+		return &plistValue{Dictionary, &dictionary{m: subvalues}}
 	case "array":
 		var subvalues []*plistValue = make([]*plistValue, 0, 10)
 		for {

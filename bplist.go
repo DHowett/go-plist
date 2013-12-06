@@ -71,9 +71,12 @@ func (p *bplistGenerator) flattenPlistValue(pval *plistValue) {
 
 	switch pval.kind {
 	case Dictionary:
-		subvalues := pval.value.(map[string]*plistValue)
-		for k, v := range subvalues {
+		dict := pval.value.(*dictionary)
+		dict.populateArrays()
+		for _, k := range dict.keys {
 			p.flattenPlistValue(&plistValue{String, k})
+		}
+		for _, v := range dict.values {
 			p.flattenPlistValue(v)
 		}
 	case Array:
@@ -133,7 +136,7 @@ func (p *bplistGenerator) writePlistValue(pval *plistValue) {
 
 	switch pval.kind {
 	case Dictionary:
-		p.writeDictionaryTag(pval.value.(map[string]*plistValue))
+		p.writeDictionaryTag(pval.value.(*dictionary))
 	case Array:
 		p.writeArrayTag(pval.value.([]*plistValue))
 	case String:
@@ -302,25 +305,23 @@ func (p *bplistGenerator) writeStringTag(str string) {
 	}
 }
 
-func (p *bplistGenerator) writeDictionaryTag(dict map[string]*plistValue) {
-	p.writeCountedTag(bpTagDictionary, uint64(len(dict)))
-	vals := make([]uint64, len(dict)*2)
-	cnt := len(dict)
-	i := 0
-	for k, v := range dict {
+func (p *bplistGenerator) writeDictionaryTag(dict *dictionary) {
+	p.writeCountedTag(bpTagDictionary, uint64(dict.count))
+	vals := make([]uint64, dict.count*2)
+	cnt := dict.count
+	for i, k := range dict.keys {
 		keyIdx, ok := p.uniqmap[k]
 		if !ok {
 			panic(errors.New("failed to find key " + k + " in object map during serialization"))
 		}
-
+		vals[i] = keyIdx
+	}
+	for i, v := range dict.values {
 		objIdx, ok := p.indexForPlistValue(v)
 		if !ok {
-			panic(errors.New("failed to find value for key " + k + " in object map during serialization"))
+			panic(errors.New("failed to find value in object map during serialization"))
 		}
-
-		vals[i] = keyIdx
 		vals[i+cnt] = objIdx
-		i++
 	}
 
 	for _, v := range vals {
@@ -500,7 +501,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 	case bpTagDictionary:
 		cnt := p.countForTag(tag)
 
-		dict := make(map[string]*plistValue)
+		subvalues := make(map[string]*plistValue)
 		indices := make([]uint64, cnt*2)
 		for i := uint64(0); i < cnt*2; i++ {
 			idx := p.readSizedInt(int(p.trailer.ObjectRefSize))
@@ -508,10 +509,10 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 		}
 		for i := uint64(0); i < cnt; i++ {
 			kval := p.valueAtOffset(p.offtable[indices[i]])
-			dict[kval.value.(string)] = p.valueAtOffset(p.offtable[indices[i+cnt]])
+			subvalues[kval.value.(string)] = p.valueAtOffset(p.offtable[indices[i+cnt]])
 		}
 
-		return &plistValue{Dictionary, dict}
+		return &plistValue{Dictionary, &dictionary{m: subvalues}}
 	case bpTagArray:
 		cnt := p.countForTag(tag)
 

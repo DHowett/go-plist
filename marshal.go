@@ -40,16 +40,18 @@ func (p *Encoder) marshalTextInterface(marshalable encoding.TextMarshaler) *plis
 func (p *Encoder) marshalStruct(typ reflect.Type, val reflect.Value) *plistValue {
 	tinfo, _ := getTypeInfo(typ)
 
-	subvalues := make(map[string]*plistValue, len(tinfo.fields))
+	dict := &dictionary{
+		m: make(map[string]*plistValue, len(tinfo.fields)),
+	}
 	for _, finfo := range tinfo.fields {
 		value := finfo.value(val)
 		if !value.IsValid() || finfo.omitEmpty && isEmptyValue(value) {
 			continue
 		}
-		subvalues[finfo.name] = p.marshal(value)
+		dict.m[finfo.name] = p.marshal(value)
 	}
 
-	return &plistValue{Dictionary, subvalues}
+	return &plistValue{Dictionary, dict}
 }
 
 func (p *Encoder) marshalTime(val reflect.Value) *plistValue {
@@ -135,13 +137,16 @@ func (p *Encoder) marshal(val reflect.Value) *plistValue {
 			panic(&unknownTypeError{typ})
 		}
 
-		subvalues := make(map[string]*plistValue, val.Len())
+		l := val.Len()
+		dict := &dictionary{
+			m: make(map[string]*plistValue, l),
+		}
 		for _, keyv := range val.MapKeys() {
 			if subpval := p.marshal(val.MapIndex(keyv)); subpval != nil {
-				subvalues[keyv.String()] = subpval
+				dict.m[keyv.String()] = subpval
 			}
 		}
-		return &plistValue{Dictionary, subvalues}
+		return &plistValue{Dictionary, dict}
 	default:
 		panic(&unknownTypeError{typ})
 	}
