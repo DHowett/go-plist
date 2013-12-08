@@ -149,7 +149,7 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 			panic(incompatibleTypeError)
 		}
 	case Data:
-		if typ.Elem().Kind() == reflect.Uint8 {
+		if val.Kind() == reflect.Slice && typ.Elem().Kind() == reflect.Uint8 {
 			val.SetBytes(pval.value.([]byte))
 		} else {
 			panic(incompatibleTypeError)
