@@ -161,7 +161,7 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 	}
 }
 
-func (p *Decoder) unmarshalArray(pval *plistValue, val reflect.Value) error {
+func (p *Decoder) unmarshalArray(pval *plistValue, val reflect.Value) {
 	subvalues := pval.value.([]*plistValue)
 
 	var n int
@@ -182,10 +182,10 @@ func (p *Decoder) unmarshalArray(pval *plistValue, val reflect.Value) error {
 		val.SetLen(cnt)
 	} else if val.Kind() == reflect.Array {
 		if len(subvalues) > val.Cap() {
-			return fmt.Errorf("attempted to unmarshal %d values into an array of size %d", len(subvalues), val.Cap())
+			panic(fmt.Errorf("attempted to unmarshal %d values into an array of size %d", len(subvalues), val.Cap()))
 		}
 	} else {
-		return &incompatibleDecodeTypeError{val.Type(), pval.kind}
+		panic(&incompatibleDecodeTypeError{val.Type(), pval.kind})
 	}
 
 	// Recur to read element into slice.
@@ -193,23 +193,22 @@ func (p *Decoder) unmarshalArray(pval *plistValue, val reflect.Value) error {
 		p.unmarshal(sval, val.Index(n))
 		n++
 	}
-	return nil
+	return
 }
 
-func (p *Decoder) unmarshalDictionary(pval *plistValue, val reflect.Value) error {
+func (p *Decoder) unmarshalDictionary(pval *plistValue, val reflect.Value) {
 	typ := val.Type()
 	switch val.Kind() {
 	case reflect.Struct:
 		tinfo, err := getTypeInfo(typ)
 		if err != nil {
-			return err
+			panic(err)
 		}
 
 		subvalues := pval.value.(*dictionary).m
 		for _, finfo := range tinfo.fields {
 			p.unmarshal(subvalues[finfo.name], finfo.value(val))
 		}
-		return nil
 	case reflect.Map:
 		if val.IsNil() {
 			val.Set(reflect.MakeMap(typ))
@@ -226,9 +225,8 @@ func (p *Decoder) unmarshalDictionary(pval *plistValue, val reflect.Value) error
 			p.unmarshal(sval, mapElem)
 			val.SetMapIndex(keyv, mapElem)
 		}
-		return nil
 	default:
-		return &incompatibleDecodeTypeError{typ, pval.kind}
+		panic(&incompatibleDecodeTypeError{typ, pval.kind})
 	}
 }
 
