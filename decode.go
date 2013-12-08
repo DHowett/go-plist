@@ -15,6 +15,7 @@ type parser interface {
 // A decoder reads a property list from an input stream.
 type Decoder struct {
 	parser parser
+	lax    bool
 }
 
 // Decode parses a property list document and stores the result in the value pointed to by v.
@@ -76,5 +77,5 @@ func NewDecoder(r io.ReadSeeker) *Decoder {
 	} else {
 		parser = &noopParser{}
 	}
-	return &Decoder{parser}
+	return &Decoder{parser: parser, lax: false}
 }

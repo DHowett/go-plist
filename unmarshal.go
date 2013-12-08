@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"fmt"
 	"reflect"
+	"strconv"
 	"time"
 )
 
@@ -33,6 +34,41 @@ func (p *Decoder) unmarshalTextInterface(pval *plistValue, unmarshalable encodin
 
 func (p *Decoder) unmarshalTime(pval *plistValue, val reflect.Value) {
 	val.Set(reflect.ValueOf(pval.value.(time.Time)))
+}
+
+func (p *Decoder) unmarshalLaxString(s string, val reflect.Value) {
+	switch val.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		i, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		val.SetInt(i)
+		return
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		i, err := strconv.ParseUint(s, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		val.SetUint(i)
+		return
+	case reflect.Float32, reflect.Float64:
+		f, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			panic(err)
+		}
+		val.SetFloat(f)
+		return
+	case reflect.Bool:
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			panic(err)
+		}
+		val.SetBool(b)
+		return
+	default:
+		panic(&incompatibleDecodeTypeError{val.Type(), String})
+	}
 }
 
 func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
@@ -83,9 +119,14 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 	case String:
 		if val.Kind() == reflect.String {
 			val.SetString(pval.value.(string))
-		} else {
-			panic(incompatibleTypeError)
+			return
 		}
+		if p.lax {
+			p.unmarshalLaxString(pval.value.(string), val)
+			return
+		}
+
+		panic(incompatibleTypeError)
 	case Integer:
 		switch val.Kind() {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
