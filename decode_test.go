@@ -41,11 +41,68 @@ func TestLaxDecode(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	
+
 	if d != laxTestData {
-		t.Logf("Expected: %#v", laxTestData);
-		t.Logf("Received: %#v", d);
+		t.Logf("Expected: %#v", laxTestData)
+		t.Logf("Received: %#v", d)
 		t.Fail()
+	}
+}
+
+func TestIllegalLaxDecode(t *testing.T) {
+	i := int64(0)
+	u := uint64(0)
+	f := float64(0)
+	b := false
+	plists := []struct {
+		pl string
+		d  interface{}
+	}{
+		{"<string>abc</string>", &i},
+		{"<string>abc</string>", &u},
+		{"<string>def</string>", &f},
+		{"<string>ghi</string>", &b},
+		{"<string>jkl</string>", []byte{0x00}},
+	}
+
+	for _, plist := range plists {
+		buf := bytes.NewReader([]byte(plist.pl))
+		decoder := NewDecoder(buf)
+		decoder.lax = true
+		err := decoder.Decode(plist.d)
+		t.Logf("Error: %v", err)
+		if err == nil {
+			t.Error("Expected error, received nothing.")
+		}
+	}
+}
+
+func TestIllegalDecode(t *testing.T) {
+	i := int64(0)
+	b := false
+	plists := []struct {
+		pl string
+		d  interface{}
+	}{
+		{"<string>abc</string>", &i},
+		{"<data>ABC=</data>", &i},
+		{"<real>34.1</real>", &i},
+		{"<true>def</true>", &i},
+		{"<date>2010-01-01T00:00:00Z</date>", &i},
+		{"<integer>0</integer>", &b},
+		{"<array><integer>0</integer></array>", &b},
+		{"<dict><key>a</key><integer>0</integer></dict>", &b},
+		{"<array><true/><true/><true/></array>", &[1]int{1}},
+	}
+
+	for _, plist := range plists {
+		buf := bytes.NewReader([]byte(plist.pl))
+		decoder := NewDecoder(buf)
+		err := decoder.Decode(plist.d)
+		t.Logf("Error: %v", err)
+		if err == nil {
+			t.Error("Expected error, received nothing.")
+		}
 	}
 }
 
