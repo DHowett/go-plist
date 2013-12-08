@@ -31,6 +31,19 @@ func BenchmarkBplistDecode(b *testing.B) {
 	}
 }
 
+func TestLaxDecode(t *testing.T) {
+	var plistValueTreeStringsOnlyAsXML string = xmlPreamble + `<plist version="1.0"><dict><key>intarray</key><array><string>1</string><string>8</string><string>16</string><string>32</string><string>64</string><string>2</string><string>9</string><string>17</string><string>33</string><string>65</string></array><key>floats</key><array><string>32</string><string>64</string></array><key>booleans</key><array><string>1</string><string>0</string></array><key>strings</key><array><string>Hello, ASCII</string><string>Hello, 世界</string></array><key>data</key><data>AQIDBA==</data><key>string</key><string>2013-11-27T00:34:00Z</string></dict></plist>`
+	d := EverythingTestData{}
+	buf := bytes.NewReader([]byte(plistValueTreeStringsOnlyAsXML))
+	decoder := NewDecoder(buf)
+	decoder.lax = true
+	err := decoder.Decode(&d)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	t.Logf("%#v", d)
+}
+
 func TestDecode(t *testing.T) {
 	var failed bool
 	for _, test := range tests {
