@@ -82,3 +82,10 @@ func NewBinaryEncoder(w io.Writer) *Encoder {
 	}
 	return p
 }
+
+func NewOpenStepEncoder(w io.Writer) *Encoder {
+	p := &Encoder{
+		generator: &textPlistGenerator{w},
+	}
+	return p
+}

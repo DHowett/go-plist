@@ -63,8 +63,12 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 	} else {
 		parser = newXMLPlistParser(p.reader)
 		pval, err = parser.parseDocument()
-		if err != nil {
-			panic(err)
+		if err == io.EOF {
+			parser = newTextPlistParser(p.reader)
+			pval, err = parser.parseDocument()
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 

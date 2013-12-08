@@ -18,6 +18,12 @@ func BenchmarkBplistEncode(b *testing.B) {
 	}
 }
 
+func BenchmarkOpenStepEncode(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		NewOpenStepEncoder(&bytes.Buffer{}).Encode(plistValueTreeRawData)
+	}
+}
+
 func TestEncode(t *testing.T) {
 	var failed bool
 	for _, test := range tests {
