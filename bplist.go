@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"hash/crc32"
 	"io"
 	"math"
@@ -433,12 +434,10 @@ func (p *bplistParser) countForTag(tag uint8) uint64 {
 func (p *bplistParser) valueAtOffset(off uint64) *plistValue {
 	if pval, ok := p.objrefs[off]; ok {
 		return pval
-	} else {
-		pval := p.parseTagAtOffset(int64(off))
-		p.objrefs[off] = pval
-		return pval
 	}
-	return nil
+	pval := p.parseTagAtOffset(int64(off))
+	p.objrefs[off] = pval
+	return pval
 }
 
 func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
@@ -452,6 +451,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 		case bpTagBoolTrue, bpTagBoolFalse:
 			return &plistValue{Boolean, tag == bpTagBoolTrue}
 		}
+		return nil
 	case bpTagInteger:
 		val := p.readSizedInt(1 << (tag & 0xF))
 		return &plistValue{Integer, val}
@@ -527,7 +527,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 
 		return &plistValue{Array, arr}
 	}
-	return nil
+	panic(fmt.Errorf("bplist: unexpected atom %2.02x at offset %d", tag, off))
 }
 
 func newBplistParser(r io.ReadSeeker) *bplistParser {
