@@ -14,7 +14,7 @@ type incompatibleDecodeTypeError struct {
 }
 
 func (u *incompatibleDecodeTypeError) Error() string {
-	return fmt.Sprintf("type mismatch: tried to decode %v into value of type %v", plistKindNames[u.pKind], u.typ)
+	return fmt.Sprintf("plist: type mismatch: tried to decode %v into value of type %v", plistKindNames[u.pKind], u.typ)
 }
 
 var (
@@ -182,7 +182,7 @@ func (p *Decoder) unmarshalArray(pval *plistValue, val reflect.Value) {
 		val.SetLen(cnt)
 	} else if val.Kind() == reflect.Array {
 		if len(subvalues) > val.Cap() {
-			panic(fmt.Errorf("attempted to unmarshal %d values into an array of size %d", len(subvalues), val.Cap()))
+			panic(fmt.Errorf("plist: attempted to unmarshal %d values into an array of size %d", len(subvalues), val.Cap()))
 		}
 	} else {
 		panic(&incompatibleDecodeTypeError{val.Type(), pval.kind})

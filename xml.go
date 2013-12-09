@@ -221,7 +221,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 
 			if el, ok := token.(xml.EndElement); ok && el.Name.Local == "dict" {
 				if key != "" {
-					panic(errors.New("missing value in dictionary"))
+					panic(errors.New("plist: missing value in dictionary"))
 				}
 				break
 			}
@@ -231,7 +231,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 					p.xmlDecoder.DecodeElement(&key, &el)
 				} else {
 					if key == "" {
-						panic(errors.New("missing key in dictionary"))
+						panic(errors.New("plist: missing key in dictionary"))
 					}
 					subvalues[key] = p.parseXMLElement(el)
 					key = ""
@@ -257,7 +257,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 		}
 		return &plistValue{Array, subvalues}
 	}
-	panic(fmt.Errorf("encountered unknown element %s in XML", element.Name.Local))
+	panic(fmt.Errorf("plist: encountered unknown element %s in XML", element.Name.Local))
 }
 
 func newXMLPlistParser(r io.Reader) *xmlPlistParser {

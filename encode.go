@@ -60,7 +60,7 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 
 	pval := p.marshal(reflect.ValueOf(v))
 	if pval == nil {
-		panic(errors.New("no root element to encode"))
+		panic(errors.New("plist: no root element to encode"))
 	}
 
 	p.generator.generateDocument(pval)

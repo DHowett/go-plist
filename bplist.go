@@ -166,7 +166,7 @@ func minimumSizeForInt(n uint64) int {
 	default:
 		return 8
 	}
-	panic(errors.New("illegal integer size"))
+	panic(errors.New("plist: illegal integer size"))
 }
 
 func (p *bplistGenerator) writeSizedInt(n uint64, nbytes int) {
@@ -181,7 +181,7 @@ func (p *bplistGenerator) writeSizedInt(n uint64, nbytes int) {
 	case 8:
 		val = n
 	default:
-		panic(errors.New("illegal integer size"))
+		panic(errors.New("plist: illegal integer size"))
 	}
 	err := binary.Write(p.writer, binary.BigEndian, val)
 	if err != nil {
@@ -313,14 +313,14 @@ func (p *bplistGenerator) writeDictionaryTag(dict *dictionary) {
 	for i, k := range dict.keys {
 		keyIdx, ok := p.uniqmap[k]
 		if !ok {
-			panic(errors.New("failed to find key " + k + " in object map during serialization"))
+			panic(errors.New("plist: failed to find key " + k + " in object map during serialization"))
 		}
 		vals[i] = keyIdx
 	}
 	for i, v := range dict.values {
 		objIdx, ok := p.indexForPlistValue(v)
 		if !ok {
-			panic(errors.New("failed to find value in object map during serialization"))
+			panic(errors.New("plist: failed to find value in object map during serialization"))
 		}
 		vals[i+cnt] = objIdx
 	}
@@ -335,7 +335,7 @@ func (p *bplistGenerator) writeArrayTag(arr []*plistValue) {
 	for _, v := range arr {
 		objIdx, ok := p.indexForPlistValue(v)
 		if !ok {
-			panic(errors.New("failed to find value in object map during serialization"))
+			panic(errors.New("plist: failed to find value in object map during serialization"))
 		}
 
 		p.writeSizedInt(objIdx, int(p.trailer.ObjectRefSize))
@@ -363,7 +363,7 @@ func (p *bplistParser) parseDocument() *plistValue {
 	p.reader.Seek(0, 0)
 	p.reader.Read(magic)
 	if !bytes.Equal(magic, []byte("bplist")) {
-		panic(errors.New("invalid binary property list (mismatched magic)"))
+		panic(errors.New("plist: invalid binary property list (mismatched magic)"))
 	}
 
 	p.reader.Read(ver)
@@ -418,7 +418,7 @@ func (p *bplistParser) readSizedInt(nbytes int) uint64 {
 		// TODO: int128 support (!)
 		return uint64(low)
 	}
-	panic(errors.New("illegal integer size"))
+	panic(errors.New("plist: illegal integer size"))
 }
 
 func (p *bplistParser) countForTag(tag uint8) uint64 {
@@ -467,7 +467,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 			binary.Read(p.reader, binary.BigEndian, &val)
 			return &plistValue{Real, sizedFloat{float64(val), 64}}
 		}
-		panic(errors.New("illegal float size"))
+		panic(errors.New("plist: illegal float size"))
 	case bpTagDate:
 		var val float64
 		binary.Read(p.reader, binary.BigEndian, &val)
@@ -527,7 +527,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 
 		return &plistValue{Array, arr}
 	}
-	panic(fmt.Errorf("bplist: unexpected atom %2.02x at offset %d", tag, off))
+	panic(fmt.Errorf("plist: unexpected atom 0x%2.02x at offset %d", tag, off))
 }
 
 func newBplistParser(r io.ReadSeeker) *bplistParser {

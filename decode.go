@@ -56,7 +56,7 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 type noopParser struct{}
 
 func (p *noopParser) parseDocument() *plistValue {
-	panic(errors.New("invalid property list document format"))
+	panic(errors.New("plist: invalid property list document format"))
 }
 
 // NewDecoder returns a Decoder that reads a property list from r.

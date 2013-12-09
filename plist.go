@@ -84,5 +84,5 @@ type unknownTypeError struct {
 }
 
 func (u *unknownTypeError) Error() string {
-	return "can't serialize value of type " + u.typ.String()
+	return "plist: can't marshal value of type " + u.typ.String()
 }
