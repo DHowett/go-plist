@@ -373,6 +373,10 @@ func (p *bplistParser) parseDocument() *plistValue {
 		panic(err)
 	}
 
+	if p.version > 1 {
+		panic(fmt.Errorf("plist: unexpected bplist version %d", p.version))
+	}
+
 	p.objrefs = make(map[uint64]*plistValue)
 	p.reader.Seek(-32, 2)
 	binary.Read(p.reader, binary.BigEndian, &p.trailer)
