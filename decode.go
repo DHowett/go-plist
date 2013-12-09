@@ -64,13 +64,13 @@ func (p *noopParser) parseDocument() *plistValue {
 // from the start of r to determine the property list format,
 // and then seeks back to the beginning of the stream.
 func NewDecoder(r io.ReadSeeker) *Decoder {
-	header := make([]byte, 7)
+	header := make([]byte, 6)
 	r.Read(header)
 	r.Seek(0, 0)
 
 	var parser parser
 
-	if bytes.Equal(header, []byte("bplist0")) {
+	if bytes.Equal(header, []byte("bplist")) {
 		parser = newBplistParser(r)
 	} else if bytes.Contains(header, []byte("<")) {
 		parser = newXMLPlistParser(r)
