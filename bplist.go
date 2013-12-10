@@ -48,11 +48,17 @@ type bplistGenerator struct {
 
 func (p *bplistGenerator) flattenPlistValue(pval *plistValue) {
 	switch pval.kind {
-	case String, Integer, Real, Date:
+	case String, Integer, Real:
 		if _, ok := p.uniqmap[pval.value]; ok {
 			return
 		}
 		p.uniqmap[pval.value] = p.nobjects
+	case Date:
+		k := pval.value.(time.Time).UnixNano()
+		if _, ok := p.uniqmap[k]; ok {
+			return
+		}
+		p.uniqmap[k] = p.nobjects
 	case Data:
 		// Data are uniqued by their checksums.
 		// The wonderful difference between uint64 (which we use for numbers)
@@ -92,8 +98,10 @@ func (p *bplistGenerator) indexForPlistValue(pval *plistValue) (uint64, bool) {
 	var v uint64
 	var ok bool
 	switch pval.kind {
-	case String, Integer, Real, Date:
+	case String, Integer, Real:
 		v, ok = p.uniqmap[pval.value]
+	case Date:
+		v, ok = p.uniqmap[pval.value.(time.Time).UnixNano()]
 	case Data:
 		v, ok = p.uniqmap[crc32.ChecksumIEEE(pval.value.([]byte))]
 	default:
