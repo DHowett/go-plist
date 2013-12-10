@@ -366,7 +366,11 @@ func (p *bplistParser) parseDocument() *plistValue {
 		panic(errors.New("plist: invalid binary property list (mismatched magic)"))
 	}
 
-	p.reader.Read(ver)
+	_, err := p.reader.Read(ver)
+	if err != nil {
+		panic(err)
+	}
+
 	if version, err := strconv.ParseInt(string(ver), 10, 0); err == nil {
 		p.version = int(version)
 	} else {
@@ -378,13 +382,24 @@ func (p *bplistParser) parseDocument() *plistValue {
 	}
 
 	p.objrefs = make(map[uint64]*plistValue)
-	p.reader.Seek(-32, 2)
-	binary.Read(p.reader, binary.BigEndian, &p.trailer)
+	_, err = p.reader.Seek(-32, 2)
+	if err != nil && err != io.EOF {
+		panic(err)
+	}
+
+	err = binary.Read(p.reader, binary.BigEndian, &p.trailer)
+	if err != nil && err != io.EOF {
+		panic(err)
+	}
 
 	p.offtable = make([]uint64, p.trailer.NumObjects)
 
 	// SEEK_SET
-	p.reader.Seek(int64(p.trailer.OffsetTableOffset), 0)
+	_, err = p.reader.Seek(int64(p.trailer.OffsetTableOffset), 0)
+	if err != nil && err != io.EOF {
+		panic(err)
+	}
+
 	for i := uint64(0); i < p.trailer.NumObjects; i++ {
 		off := p.readSizedInt(int(p.trailer.OffsetIntSize))
 		p.offtable[i] = off
