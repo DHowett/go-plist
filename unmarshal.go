@@ -130,9 +130,9 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 	case Integer:
 		switch val.Kind() {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			val.SetInt(int64(pval.value.(uint64)))
+			val.SetInt(int64(pval.value.(signedInt).value))
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-			val.SetUint(pval.value.(uint64))
+			val.SetUint(pval.value.(signedInt).value)
 		default:
 			panic(incompatibleTypeError)
 		}
@@ -236,7 +236,7 @@ func (p *Decoder) valueInterface(pval *plistValue) interface{} {
 	case String:
 		return pval.value.(string)
 	case Integer:
-		return pval.value.(uint64)
+		return pval.value.(signedInt).value
 	case Real:
 		bits := pval.value.(sizedFloat).bits
 		switch bits {

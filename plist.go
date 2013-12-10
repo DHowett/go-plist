@@ -36,6 +36,11 @@ type plistValue struct {
 	value interface{}
 }
 
+type signedInt struct {
+	value  uint64
+	signed bool
+}
+
 type sizedFloat struct {
 	value float64
 	bits  int

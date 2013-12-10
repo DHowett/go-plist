@@ -143,7 +143,7 @@ func (p *bplistGenerator) writePlistValue(pval *plistValue) {
 	case String:
 		p.writeStringTag(pval.value.(string))
 	case Integer:
-		p.writeIntTag(pval.value.(uint64))
+		p.writeIntTag(pval.value.(signedInt).value)
 	case Real:
 		p.writeRealTag(pval.value.(sizedFloat).value, pval.value.(sizedFloat).bits)
 	case Boolean:
@@ -458,7 +458,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 		return nil
 	case bpTagInteger:
 		val := p.readSizedInt(1 << (tag & 0xF))
-		return &plistValue{Integer, val}
+		return &plistValue{Integer, signedInt{val, false}}
 	case bpTagReal:
 		nbytes := 1 << (tag & 0x0F)
 		switch nbytes {

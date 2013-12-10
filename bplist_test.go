@@ -30,7 +30,7 @@ func TestBplistInt128(t *testing.T) {
 	buf := bytes.NewReader(bplist)
 	d := newBplistParser(buf)
 	pval := d.parseDocument()
-	if pval.kind != Integer || pval.value.(uint64) != expected {
+	if pval.kind != Integer || pval.value.(signedInt).value != expected {
 		t.Error("Expected", expected, "received", pval.value)
 	}
 }

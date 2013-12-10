@@ -76,6 +76,11 @@ func (p *xmlPlistGenerator) writePlistValue(pval *plistValue) {
 		key = "string"
 	case Integer:
 		key = "integer"
+		if pval.value.(signedInt).signed {
+			encodedValue = int64(pval.value.(signedInt).value)
+		} else {
+			encodedValue = pval.value.(signedInt).value
+		}
 	case Real:
 		key = "real"
 		encodedValue = pval.value.(sizedFloat).value
@@ -161,12 +166,20 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 			panic(err)
 		}
 
-		n, err := strconv.ParseUint(string(charData), 10, 64)
-		if err != nil {
-			panic(err)
+		s := string(charData)
+		if s[0] == '-' {
+			n, err := strconv.ParseInt(string(charData), 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			return &plistValue{Integer, signedInt{uint64(n), true}}
+		} else {
+			n, err := strconv.ParseUint(string(charData), 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			return &plistValue{Integer, signedInt{n, false}}
 		}
-
-		return &plistValue{Integer, n}
 	case "real":
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {

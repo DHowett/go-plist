@@ -376,6 +376,12 @@ var tests = []TestData{
 		ExpectedBin: []byte{98, 112, 108, 105, 115, 116, 48, 48, 92, 117, 110, 105, 109, 97, 103, 105, 110, 97, 98, 108, 101, 8, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21},
 		DecodeData:  TextMarshalingBoolViaPointer{false},
 	},
+	{
+		Name:        "Signed Integers",
+		Data:        []int64{-1, -127, -255, -32767, -65535},
+		ExpectedXML: xmlPreamble + `<plist version="1.0"><array><integer>-1</integer><integer>-127</integer><integer>-255</integer><integer>-32767</integer><integer>-65535</integer></array></plist>`,
+		ExpectedBin: []byte{0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xa5, 0x1, 0x2, 0x3, 0x4, 0x5, 0x13, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x13, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x81, 0x13, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x1, 0x13, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x80, 0x1, 0x13, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x0, 0x1, 0x8, 0xe, 0x17, 0x20, 0x29, 0x32, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x6, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3b},
+	},
 }
 
 type EverythingTestData struct {
@@ -414,16 +420,16 @@ func setupPlistValues() {
 		Dictionary,
 		&dictionary{m: map[string]*plistValue{
 			"intarray": &plistValue{Array, []*plistValue{
-				&plistValue{Integer, uint64(1)},
-				&plistValue{Integer, uint64(8)},
-				&plistValue{Integer, uint64(16)},
-				&plistValue{Integer, uint64(32)},
-				&plistValue{Integer, uint64(64)},
-				&plistValue{Integer, uint64(2)},
-				&plistValue{Integer, uint64(8)},
-				&plistValue{Integer, uint64(17)},
-				&plistValue{Integer, uint64(33)},
-				&plistValue{Integer, uint64(65)},
+				&plistValue{Integer, signedInt{uint64(1), false}},
+				&plistValue{Integer, signedInt{uint64(8), false}},
+				&plistValue{Integer, signedInt{uint64(16), false}},
+				&plistValue{Integer, signedInt{uint64(32), false}},
+				&plistValue{Integer, signedInt{uint64(64), false}},
+				&plistValue{Integer, signedInt{uint64(2), false}},
+				&plistValue{Integer, signedInt{uint64(8), false}},
+				&plistValue{Integer, signedInt{uint64(17), false}},
+				&plistValue{Integer, signedInt{uint64(33), false}},
+				&plistValue{Integer, signedInt{uint64(65), false}},
 			}},
 			"floats": &plistValue{Array, []*plistValue{
 				&plistValue{Real, sizedFloat{float64(32.0), 32}},
