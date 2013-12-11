@@ -145,13 +145,10 @@ func (p *xmlPlistParser) parseDocument() (pval *plistValue, parseError error) {
 		if token, err := p.xmlDecoder.Token(); err == nil {
 			if element, ok := token.(xml.StartElement); ok {
 				pval = p.parseXMLElement(element)
-				return
-			} else {
-				// The first XML parse turned out to be not an XML element.
-				// This is not a valid XML property pist.
-				if _, ok := token.(xml.CharData); ok {
-					panic(invalidPlistError{"XML", nil})
+				if p.ntags == 0 {
+					panic(invalidPlistError{"XML", errors.New("no elements encountered")})
 				}
+				return
 			}
 		} else {
 			// The first XML parse turned out to be invalid:
