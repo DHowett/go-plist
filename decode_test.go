@@ -199,7 +199,7 @@ func TestOSDecode(t *testing.T) {
 
 		t.Logf("Testing Transcode (%s)", test.Name)
 		osbuf := &bytes.Buffer{}
-		enc := NewOpenStepEncoder(osbuf)
+		enc := NewEncoderForFormat(osbuf, OpenStepFormat)
 		err := enc.Encode(test.Data)
 		if err != nil {
 			t.Log(err)

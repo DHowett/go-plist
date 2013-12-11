@@ -20,7 +20,7 @@ func BenchmarkBplistEncode(b *testing.B) {
 
 func BenchmarkOpenStepEncode(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		NewOpenStepEncoder(&bytes.Buffer{}).Encode(plistValueTreeRawData)
+		NewEncoderForFormat(&bytes.Buffer{}, OpenStepFormat).Encode(plistValueTreeRawData)
 	}
 }
 

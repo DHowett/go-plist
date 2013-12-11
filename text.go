@@ -122,6 +122,10 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 	}
 }
 
+func newTextPlistGenerator(w io.Writer) *textPlistGenerator {
+	return &textPlistGenerator{w}
+}
+
 type byteReader interface {
 	io.Reader
 	io.ByteScanner

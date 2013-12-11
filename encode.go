@@ -13,8 +13,8 @@ type generator interface {
 
 // An Encoder writes a property list to an output stream.
 type Encoder struct {
-	writer    io.Writer
-	generator generator
+	writer io.Writer
+	format int
 }
 
 // Encode writes the property list encoding of v to the connection.
@@ -63,29 +63,32 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 		panic(errors.New("plist: no root element to encode"))
 	}
 
-	p.generator.generateDocument(pval)
+	var g generator
+	switch p.format {
+	case XMLFormat:
+		g = newXMLPlistGenerator(p.writer)
+	case BinaryFormat, AutomaticFormat:
+		g = newBplistGenerator(p.writer)
+	case OpenStepFormat:
+		g = newTextPlistGenerator(p.writer)
+	}
+	g.generateDocument(pval)
 	return
 }
 
 // NewEncoder returns an Encoder that writes an XML property list to w.
 func NewEncoder(w io.Writer) *Encoder {
-	p := &Encoder{
-		generator: newXMLPlistGenerator(w),
+	return NewEncoderForFormat(w, XMLFormat)
+}
+
+func NewEncoderForFormat(w io.Writer, format int) *Encoder {
+	return &Encoder{
+		writer: w,
+		format: format,
 	}
-	return p
 }
 
 // NewBinaryEncoder returns an Encoder that writes a binary property list to w.
 func NewBinaryEncoder(w io.Writer) *Encoder {
-	p := &Encoder{
-		generator: newBplistGenerator(w),
-	}
-	return p
-}
-
-func NewOpenStepEncoder(w io.Writer) *Encoder {
-	p := &Encoder{
-		generator: &textPlistGenerator{w},
-	}
-	return p
+	return NewEncoderForFormat(w, BinaryFormat)
 }
