@@ -177,6 +177,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 				return p.parseXMLElement(el)
 			}
 		}
+		return nil
 	case "string":
 		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
