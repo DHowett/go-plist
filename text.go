@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -131,8 +132,17 @@ type textPlistParser struct {
 	reader byteReader
 }
 
-func (p *textPlistParser) parseDocument() (*plistValue, error) {
-	return p.parsePlistValue(), nil
+func (p *textPlistParser) parseDocument() (pval *plistValue, parseError error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+			parseError = r.(error)
+		}
+	}()
+	pval = p.parsePlistValue()
+	return
 }
 
 func (p *textPlistParser) chugWhitespace() {
