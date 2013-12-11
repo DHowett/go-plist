@@ -315,7 +315,11 @@ func (p *textPlistParser) parseArray() *plistValue {
 		}
 
 		p.reader.UnreadByte()
-		subval = append(subval, p.parsePlistValue())
+		pval := p.parsePlistValue()
+		if pval.kind == String && pval.value.(string) == "" {
+			continue
+		}
+		subval = append(subval, pval)
 	}
 	return &plistValue{Array, subval}
 }
