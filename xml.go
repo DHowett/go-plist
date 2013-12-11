@@ -9,6 +9,7 @@ import (
 	"math"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -120,8 +121,9 @@ func newXMLPlistGenerator(w io.Writer) *xmlPlistGenerator {
 }
 
 type xmlPlistParser struct {
-	reader     io.Reader
-	xmlDecoder *xml.Decoder
+	reader             io.Reader
+	xmlDecoder         *xml.Decoder
+	whitespaceReplacer *strings.Replacer
 }
 
 func (p *xmlPlistParser) parseDocument() (pval *plistValue, parseError error) {
@@ -225,9 +227,11 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 			panic(err)
 		}
 
-		l := base64.StdEncoding.DecodedLen(len(charData))
+		str := p.whitespaceReplacer.Replace(string(charData))
+
+		l := base64.StdEncoding.DecodedLen(len(str))
 		bytes := make([]uint8, l)
-		l, err = base64.StdEncoding.Decode(bytes, charData)
+		l, err = base64.StdEncoding.Decode(bytes, []byte(str))
 		if err != nil {
 			panic(err)
 		}
@@ -284,5 +288,5 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 }
 
 func newXMLPlistParser(r io.Reader) *xmlPlistParser {
-	return &xmlPlistParser{r, xml.NewDecoder(r)}
+	return &xmlPlistParser{r, xml.NewDecoder(r), strings.NewReplacer("\t", "", "\n", "", " ", "", "\r", "")}
 }
