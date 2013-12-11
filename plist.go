@@ -8,6 +8,15 @@ import (
 type plistKind uint
 
 const (
+	InvalidFormat   int = 0
+	AutomaticFormat     = 0
+	XMLFormat           = 1
+	BinaryFormat        = 2
+	OpenStepFormat      = 3
+	GNUStepFormat       = 4
+)
+
+const (
 	Invalid plistKind = iota
 	Dictionary
 	Array

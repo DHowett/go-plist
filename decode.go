@@ -13,6 +13,7 @@ type parser interface {
 
 // A decoder reads a property list from an input stream.
 type Decoder struct {
+	Format int
 	reader io.ReadSeeker
 	lax    bool
 }
@@ -60,6 +61,7 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 			// Had a bplist header, but still got an error: we have to die here.
 			return err
 		}
+		p.Format = BinaryFormat
 	} else {
 		parser = newXMLPlistParser(p.reader)
 		pval, err = parser.parseDocument()
@@ -71,10 +73,12 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return err
 			}
+			p.Format = OpenStepFormat
 		} else {
 			if err != nil {
 				return err
 			}
+			p.Format = XMLFormat
 		}
 	}
 
@@ -87,5 +91,5 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 // from the start of r to determine the property list format,
 // and then seeks back to the beginning of the stream.
 func NewDecoder(r io.ReadSeeker) *Decoder {
-	return &Decoder{reader: r, lax: false}
+	return &Decoder{Format: InvalidFormat, reader: r, lax: false}
 }
