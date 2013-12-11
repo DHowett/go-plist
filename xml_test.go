@@ -48,8 +48,8 @@ func TestVariousIllegalXMLPlists(t *testing.T) {
 
 	for _, plist := range plists {
 		buf := bytes.NewReader([]byte(plist))
-		d := newXMLPlistParser(buf)
-		_, err := d.parseDocument()
+		d := NewDecoder(buf)
+		err := d.Decode(nil)
 		t.Logf("Error: %v", err)
 		if err == nil {
 			t.Error("Expected error, received nothing.")

@@ -48,8 +48,8 @@ func TestVariousIllegalBplists(t *testing.T) {
 
 	for _, bplist := range bplists {
 		buf := bytes.NewReader(bplist)
-		d := newBplistParser(buf)
-		_, err := d.parseDocument()
+		d := NewDecoder(buf)
+		err := d.Decode(nil)
 		t.Logf("Error: %v", err)
 		if err == nil {
 			t.Error("Expected error, received nothing.")

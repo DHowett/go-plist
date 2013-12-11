@@ -2,7 +2,6 @@ package plist
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"reflect"
 	"runtime"
@@ -14,7 +13,7 @@ type parser interface {
 
 // A decoder reads a property list from an input stream.
 type Decoder struct {
-	parser parser
+	reader io.ReadSeeker
 	lax    bool
 }
 
@@ -48,18 +47,29 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 		}
 	}()
 
-	pval, err := p.parser.parseDocument()
-	if err != nil {
-		panic(err)
+	header := make([]byte, 6)
+	p.reader.Read(header)
+	p.reader.Seek(0, 0)
+
+	var parser parser
+	var pval *plistValue
+	if bytes.Equal(header, []byte("bplist")) {
+		parser = newBplistParser(p.reader)
+		pval, err = parser.parseDocument()
+		if err != nil {
+			// Had a bplist header, but still got an error: we have to die here.
+			panic(err)
+		}
+	} else {
+		parser = newXMLPlistParser(p.reader)
+		pval, err = parser.parseDocument()
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	p.unmarshal(pval, reflect.ValueOf(v))
 	return
-}
-
-type noopParser struct{}
-
-func (p *noopParser) parseDocument() (*plistValue, error) {
-	panic(errors.New("plist: invalid property list document format"))
 }
 
 // NewDecoder returns a Decoder that reads a property list from r.
@@ -67,18 +77,5 @@ func (p *noopParser) parseDocument() (*plistValue, error) {
 // from the start of r to determine the property list format,
 // and then seeks back to the beginning of the stream.
 func NewDecoder(r io.ReadSeeker) *Decoder {
-	header := make([]byte, 6)
-	r.Read(header)
-	r.Seek(0, 0)
-
-	var parser parser
-
-	if bytes.Equal(header, []byte("bplist")) {
-		parser = newBplistParser(r)
-	} else if bytes.Contains(header, []byte("<")) {
-		parser = newXMLPlistParser(r)
-	} else {
-		parser = &noopParser{}
-	}
-	return &Decoder{parser: parser, lax: false}
+	return &Decoder{reader: r, lax: false}
 }
