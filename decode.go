@@ -73,6 +73,9 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 			if err != nil {
 				return err
 			}
+			// OpenStep property lists can only store strings,
+			// so we have to turn on lax mode here for the unmarshal step later.
+			p.lax = true
 			p.Format = OpenStepFormat
 		} else {
 			if err != nil {
