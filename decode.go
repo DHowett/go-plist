@@ -9,7 +9,7 @@ import (
 )
 
 type parser interface {
-	parseDocument() *plistValue
+	parseDocument() (*plistValue, error)
 }
 
 // A decoder reads a property list from an input stream.
@@ -48,14 +48,17 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 		}
 	}()
 
-	pval := p.parser.parseDocument()
+	pval, err := p.parser.parseDocument()
+	if err != nil {
+		panic(err)
+	}
 	p.unmarshal(pval, reflect.ValueOf(v))
 	return
 }
 
 type noopParser struct{}
 
-func (p *noopParser) parseDocument() *plistValue {
+func (p *noopParser) parseDocument() (*plistValue, error) {
 	panic(errors.New("plist: invalid property list document format"))
 }
 

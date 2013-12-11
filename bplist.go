@@ -8,6 +8,7 @@ import (
 	"hash/crc32"
 	"io"
 	"math"
+	"runtime"
 	"strconv"
 	"time"
 	"unicode/utf16"
@@ -365,7 +366,16 @@ type bplistParser struct {
 	trailer  bplistTrailer
 }
 
-func (p *bplistParser) parseDocument() *plistValue {
+func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+			parseError = r.(error)
+		}
+	}()
+
 	magic := make([]byte, 6)
 	ver := make([]byte, 2)
 	p.reader.Seek(0, 0)
@@ -417,7 +427,8 @@ func (p *bplistParser) parseDocument() *plistValue {
 		p.valueAtOffset(off)
 	}
 
-	return p.valueAtOffset(p.offtable[p.trailer.TopObject])
+	pval = p.valueAtOffset(p.offtable[p.trailer.TopObject])
+	return
 }
 
 func (p *bplistParser) readSizedInt(nbytes int) uint64 {

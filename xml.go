@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -123,11 +124,20 @@ type xmlPlistParser struct {
 	xmlDecoder *xml.Decoder
 }
 
-func (p *xmlPlistParser) parseDocument() *plistValue {
+func (p *xmlPlistParser) parseDocument() (pval *plistValue, parseError error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+			parseError = r.(error)
+		}
+	}()
 	for {
 		if token, err := p.xmlDecoder.Token(); err == nil {
 			if element, ok := token.(xml.StartElement); ok {
-				return p.parseXMLElement(element)
+				pval = p.parseXMLElement(element)
+				return
 			}
 		} else {
 			panic(err)
