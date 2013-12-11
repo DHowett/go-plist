@@ -138,7 +138,12 @@ func (p *textPlistParser) parseDocument() (pval *plistValue, parseError error) {
 			if _, ok := r.(runtime.Error); ok {
 				panic(r)
 			}
-			parseError = r.(error)
+			if _, ok := r.(invalidPlistError); ok {
+				parseError = r.(error)
+			} else {
+				// Wrap all non-invalid-plist errors.
+				parseError = plistParseError{"text", r.(error)}
+			}
 		}
 	}()
 	pval = p.parsePlistValue()
@@ -263,7 +268,7 @@ func (p *textPlistParser) parseDictionary() *plistValue {
 		}
 		if keypv == nil || keypv.value.(string) == "" {
 			// TODO better error
-			panic(errors.New("plist: missing dictionary key"))
+			panic(errors.New("missing dictionary key"))
 		}
 
 		p.chugWhitespace()
@@ -273,7 +278,7 @@ func (p *textPlistParser) parseDictionary() *plistValue {
 		}
 
 		if c != '=' {
-			panic(errors.New("plist: missing = in dictionary"))
+			panic(errors.New("missing = in dictionary"))
 		}
 
 		// whitespace is guzzled within
@@ -286,7 +291,7 @@ func (p *textPlistParser) parseDictionary() *plistValue {
 		}
 
 		if c != ';' {
-			panic(errors.New("plist: missing ; in dictionary"))
+			panic(errors.New("missing ; in dictionary"))
 		}
 
 		subval[keypv.value.(string)] = val

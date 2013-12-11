@@ -124,6 +124,7 @@ type xmlPlistParser struct {
 	reader             io.Reader
 	xmlDecoder         *xml.Decoder
 	whitespaceReplacer *strings.Replacer
+	ntags              int
 }
 
 func (p *xmlPlistParser) parseDocument() (pval *plistValue, parseError error) {
@@ -132,7 +133,12 @@ func (p *xmlPlistParser) parseDocument() (pval *plistValue, parseError error) {
 			if _, ok := r.(runtime.Error); ok {
 				panic(r)
 			}
-			parseError = r.(error)
+			if _, ok := r.(invalidPlistError); ok {
+				parseError = r.(error)
+			} else {
+				// Wrap all non-invalid-plist errors.
+				parseError = plistParseError{"XML", r.(error)}
+			}
 		}
 	}()
 	for {
@@ -140,9 +146,17 @@ func (p *xmlPlistParser) parseDocument() (pval *plistValue, parseError error) {
 			if element, ok := token.(xml.StartElement); ok {
 				pval = p.parseXMLElement(element)
 				return
+			} else {
+				// The first XML parse turned out to be not an XML element.
+				// This is not a valid XML property pist.
+				if _, ok := token.(xml.CharData); ok {
+					panic(invalidPlistError{"XML", nil})
+				}
 			}
 		} else {
-			panic(err)
+			// The first XML parse turned out to be invalid:
+			// we do not have an XML property list.
+			panic(invalidPlistError{"XML", err})
 		}
 	}
 }
@@ -151,6 +165,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 	var charData xml.CharData
 	switch element.Name.Local {
 	case "plist":
+		p.ntags++
 		for {
 			token, err := p.xmlDecoder.Token()
 			if err != nil {
@@ -166,6 +181,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 			}
 		}
 	case "string":
+		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
 			panic(err)
@@ -173,6 +189,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 
 		return &plistValue{String, string(charData)}
 	case "integer":
+		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
 			panic(err)
@@ -193,6 +210,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 			return &plistValue{Integer, signedInt{n, false}}
 		}
 	case "real":
+		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
 			panic(err)
@@ -205,11 +223,13 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 
 		return &plistValue{Real, sizedFloat{n, 64}}
 	case "true", "false":
+		p.ntags++
 		p.xmlDecoder.Skip()
 
 		b := element.Name.Local == "true"
 		return &plistValue{Boolean, b}
 	case "date":
+		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
 			panic(err)
@@ -222,6 +242,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 
 		return &plistValue{Date, t}
 	case "data":
+		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
 		if err != nil {
 			panic(err)
@@ -238,6 +259,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 
 		return &plistValue{Data, bytes[:l]}
 	case "dict":
+		p.ntags++
 		var key string
 		var subvalues map[string]*plistValue = make(map[string]*plistValue)
 		for {
@@ -248,7 +270,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 
 			if el, ok := token.(xml.EndElement); ok && el.Name.Local == "dict" {
 				if key != "" {
-					panic(errors.New("plist: missing value in dictionary"))
+					panic(errors.New("missing value in dictionary"))
 				}
 				break
 			}
@@ -258,7 +280,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 					p.xmlDecoder.DecodeElement(&key, &el)
 				} else {
 					if key == "" {
-						panic(errors.New("plist: missing key in dictionary"))
+						panic(errors.New("missing key in dictionary"))
 					}
 					subvalues[key] = p.parseXMLElement(el)
 					key = ""
@@ -267,6 +289,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 		}
 		return &plistValue{Dictionary, &dictionary{m: subvalues}}
 	case "array":
+		p.ntags++
 		var subvalues []*plistValue = make([]*plistValue, 0, 10)
 		for {
 			token, err := p.xmlDecoder.Token()
@@ -284,9 +307,14 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 		}
 		return &plistValue{Array, subvalues}
 	}
-	panic(fmt.Errorf("plist: encountered unknown element %s in XML", element.Name.Local))
+	err := fmt.Errorf("encountered unknown element %s", element.Name.Local)
+	if p.ntags == 0 {
+		// If out first XML tag is invalid, it might be an openstep data element, ala <abab> or <0101>
+		panic(invalidPlistError{"XML", err})
+	}
+	panic(err)
 }
 
 func newXMLPlistParser(r io.Reader) *xmlPlistParser {
-	return &xmlPlistParser{r, xml.NewDecoder(r), strings.NewReplacer("\t", "", "\n", "", " ", "", "\r", "")}
+	return &xmlPlistParser{r, xml.NewDecoder(r), strings.NewReplacer("\t", "", "\n", "", " ", "", "\r", ""), 0}
 }
