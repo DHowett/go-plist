@@ -34,6 +34,7 @@ const (
 	bpTagData              = 0x40
 	bpTagASCIIString       = 0x50
 	bpTagUTF16String       = 0x60
+	bpTagUID               = 0x80
 	bpTagArray             = 0xA0
 	bpTagDictionary        = 0xD0
 )
@@ -541,6 +542,9 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 			runes := utf16.Decode(bytes)
 			return &plistValue{String, string(runes)}
 		}
+	case bpTagUID: // Somehow different than int: low half is nbytes - 1 instead of log2(nbytes)
+		val := p.readSizedInt(int(tag&0xF) + 1)
+		return &plistValue{Integer, signedInt{val, false}}
 	case bpTagDictionary:
 		cnt := p.countForTag(tag)
 
