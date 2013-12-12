@@ -99,19 +99,39 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 	case String:
 		io.WriteString(p.writer, plistQuotedString(pval.value.(string)))
 	case Integer:
+		if p.format == GNUStepFormat {
+			p.writer.Write([]byte(`<*I`))
+		}
 		if pval.value.(signedInt).signed {
 			io.WriteString(p.writer, strconv.FormatInt(int64(pval.value.(signedInt).value), 10))
 		} else {
 			io.WriteString(p.writer, strconv.FormatUint(pval.value.(signedInt).value, 10))
 		}
+		if p.format == GNUStepFormat {
+			p.writer.Write([]byte(`>`))
+		}
 	case Real:
+		if p.format == GNUStepFormat {
+			p.writer.Write([]byte(`<*R`))
+		}
 		io.WriteString(p.writer, strconv.FormatFloat(pval.value.(sizedFloat).value, 'g', -1, 64))
+		if p.format == GNUStepFormat {
+			p.writer.Write([]byte(`>`))
+		}
 	case Boolean:
 		b := pval.value.(bool)
-		if b {
-			p.writer.Write([]byte(`1`))
+		if p.format == GNUStepFormat {
+			if b {
+				p.writer.Write([]byte(`<*BY>`))
+			} else {
+				p.writer.Write([]byte(`<*BN>`))
+			}
 		} else {
-			p.writer.Write([]byte(`0`))
+			if b {
+				p.writer.Write([]byte(`1`))
+			} else {
+				p.writer.Write([]byte(`0`))
+			}
 		}
 	case Data:
 		b := pval.value.([]byte)
@@ -119,7 +139,13 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 		hex.Encode(hexencoded, b)
 		io.WriteString(p.writer, `<`+string(hexencoded)+`>`)
 	case Date:
-		io.WriteString(p.writer, plistQuotedString(pval.value.(time.Time).In(time.UTC).Format(textPlistTimeLayout)))
+		if p.format == GNUStepFormat {
+			p.writer.Write([]byte(`<*D`))
+			io.WriteString(p.writer, pval.value.(time.Time).In(time.UTC).Format(textPlistTimeLayout))
+			p.writer.Write([]byte(`>`))
+		} else {
+			io.WriteString(p.writer, plistQuotedString(pval.value.(time.Time).In(time.UTC).Format(textPlistTimeLayout)))
+		}
 	}
 }
 
