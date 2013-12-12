@@ -5,8 +5,6 @@ import (
 	"sort"
 )
 
-type plistKind uint
-
 const (
 	InvalidFormat   int = 0
 	AutomaticFormat     = 0
@@ -15,6 +13,8 @@ const (
 	OpenStepFormat      = 3
 	GNUStepFormat       = 4
 )
+
+type plistKind uint
 
 const (
 	Invalid plistKind = iota
