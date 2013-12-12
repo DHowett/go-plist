@@ -7,6 +7,7 @@ import (
 	"io"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -160,8 +161,9 @@ type byteReader interface {
 }
 
 type textPlistParser struct {
-	reader byteReader
-	format int
+	reader             byteReader
+	whitespaceReplacer *strings.Replacer
+	format             int
 }
 
 func (p *textPlistParser) parseDocument() (pval *plistValue, parseError error) {
@@ -418,7 +420,8 @@ func (p *textPlistParser) parsePlistValue() *plistValue {
 				p.format = GNUStepFormat
 				return p.parseGNUStepValue(bytes)
 			} else {
-				data, err := hex.DecodeString(string(bytes))
+				s := p.whitespaceReplacer.Replace(string(bytes))
+				data, err := hex.DecodeString(s)
 				if err != nil {
 					panic(err)
 				}
@@ -445,5 +448,9 @@ func newTextPlistParser(r io.Reader) *textPlistParser {
 	} else {
 		reader = bufio.NewReader(r)
 	}
-	return &textPlistParser{reader: reader, format: OpenStepFormat}
+	return &textPlistParser{
+		reader:             reader,
+		whitespaceReplacer: strings.NewReplacer("\t", "", "\n", "", " ", "", "\r", ""),
+		format:             OpenStepFormat,
+	}
 }
