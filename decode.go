@@ -68,15 +68,18 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 		if _, ok := err.(invalidPlistError); ok {
 			// Rewind: the XML parser might have exhausted the file.
 			p.reader.Seek(0, 0)
-			parser = newTextPlistParser(p.reader)
-			pval, err = parser.parseDocument()
+			// We don't use parser here because we want the textPlistParser type
+			tp := newTextPlistParser(p.reader)
+			pval, err = tp.parseDocument()
 			if err != nil {
 				return err
 			}
-			// OpenStep property lists can only store strings,
-			// so we have to turn on lax mode here for the unmarshal step later.
-			p.lax = true
-			p.Format = OpenStepFormat
+			p.Format = tp.format
+			if p.Format == OpenStepFormat {
+				// OpenStep property lists can only store strings,
+				// so we have to turn on lax mode here for the unmarshal step later.
+				p.lax = true
+			}
 		} else {
 			if err != nil {
 				return err

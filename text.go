@@ -161,6 +161,7 @@ type byteReader interface {
 
 type textPlistParser struct {
 	reader byteReader
+	format int
 }
 
 func (p *textPlistParser) parseDocument() (pval *plistValue, parseError error) {
@@ -355,6 +356,48 @@ func (p *textPlistParser) parseArray() *plistValue {
 	return &plistValue{Array, subval}
 }
 
+func (p *textPlistParser) parseGNUStepValue(v []byte) *plistValue {
+	if len(v) < 2 {
+		panic(errors.New("invalid GNUStep extended value"))
+	}
+	typ := v[1]
+	v = v[2:]
+	switch typ {
+	case 'I':
+		if v[0] == '-' {
+			n, err := strconv.ParseInt(string(v), 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			return &plistValue{Integer, signedInt{uint64(n), true}}
+		} else {
+			n, err := strconv.ParseUint(string(v), 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			return &plistValue{Integer, signedInt{n, false}}
+		}
+	case 'R':
+		n, err := strconv.ParseFloat(string(v), 64)
+		if err != nil {
+			panic(err)
+		}
+		return &plistValue{Real, sizedFloat{n, 64}}
+	case 'B':
+		b := v[0] == 'Y'
+		return &plistValue{Boolean, b}
+	case 'D':
+		t, err := time.Parse(textPlistTimeLayout, string(v))
+		if err != nil {
+			panic(err)
+		}
+
+		return &plistValue{Date, t.In(time.UTC)}
+	}
+	panic(errors.New("invalid GNUStep type " + string(typ)))
+	return nil
+}
+
 func (p *textPlistParser) parsePlistValue() *plistValue {
 	for {
 		p.chugWhitespace()
@@ -370,11 +413,17 @@ func (p *textPlistParser) parsePlistValue() *plistValue {
 				panic(err)
 			}
 			bytes = bytes[:len(bytes)-1]
-			data, err := hex.DecodeString(string(bytes))
-			if err != nil {
-				panic(err)
+
+			if bytes[0] == '*' {
+				p.format = GNUStepFormat
+				return p.parseGNUStepValue(bytes)
+			} else {
+				data, err := hex.DecodeString(string(bytes))
+				if err != nil {
+					panic(err)
+				}
+				return &plistValue{Data, data}
 			}
-			return &plistValue{Data, data}
 		case '"':
 			return p.parseQuotedString()
 		case '{':
@@ -396,5 +445,5 @@ func newTextPlistParser(r io.Reader) *textPlistParser {
 	} else {
 		reader = bufio.NewReader(r)
 	}
-	return &textPlistParser{reader: reader}
+	return &textPlistParser{reader: reader, format: OpenStepFormat}
 }
