@@ -236,6 +236,9 @@ func (p *Decoder) valueInterface(pval *plistValue) interface{} {
 	case String:
 		return pval.value.(string)
 	case Integer:
+		if pval.value.(signedInt).signed {
+			return int64(pval.value.(signedInt).value)
+		}
 		return pval.value.(signedInt).value
 	case Real:
 		bits := pval.value.(sizedFloat).bits
