@@ -81,6 +81,8 @@ func NewEncoder(w io.Writer) *Encoder {
 	return NewEncoderForFormat(w, XMLFormat)
 }
 
+// NewEncoderForFormat returns an Encoder that writes a property list to w in the specified format.
+// Pass AutomaticFormat to allow the library to choose the best encoding (currently BinaryFormat).
 func NewEncoderForFormat(w io.Writer, format int) *Encoder {
 	return &Encoder{
 		writer: w,

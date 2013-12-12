@@ -11,14 +11,18 @@ type parser interface {
 	parseDocument() (*plistValue, error)
 }
 
-// A decoder reads a property list from an input stream.
+// A Decoder reads a property list from an input stream.
 type Decoder struct {
+	// the format of the most-recently-decoded property list
 	Format int
+
 	reader io.ReadSeeker
 	lax    bool
 }
 
 // Decode parses a property list document and stores the result in the value pointed to by v.
+//
+// After Decoding, the Decoder's Format field will be set to one of the plist format constants.
 //
 // Decode uses the inverse of the encodings that Encode uses, allocating heap-borne types as necessary.
 //
@@ -93,9 +97,7 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 }
 
 // NewDecoder returns a Decoder that reads a property list from r.
-// NewDecoder requires a Seekable stream as it reads 7 bytes
-// from the start of r to determine the property list format,
-// and then seeks back to the beginning of the stream.
+// NewDecoder requires a Seekable stream for the purposes of file type detection.
 func NewDecoder(r io.ReadSeeker) *Decoder {
 	return &Decoder{Format: InvalidFormat, reader: r, lax: false}
 }

@@ -3,7 +3,7 @@
 	$ go get howett.net/plist
 
 ## FEATURES
-* Supports encoding/decoding Apple property lists (both XML and binary) from/to arbitrary Go types
+* Supports encoding/decoding property lists (Apple XML, Apple Binary, OpenStep and GNUStep) from/to arbitrary Go types
 
 ## USE
 	package main

@@ -5,9 +5,14 @@ import (
 	"sort"
 )
 
+// Property list format constants
 const (
+	// Used by Decoder to represent an invalid property list.
 	InvalidFormat   int = 0
+
+	// Used to indicate total abandon with regards to Encoder's output format.
 	AutomaticFormat     = 0
+
 	XMLFormat           = 1
 	BinaryFormat        = 2
 	OpenStepFormat      = 3
