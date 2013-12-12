@@ -12,6 +12,7 @@ import (
 
 type textPlistGenerator struct {
 	writer io.Writer
+	format int
 }
 
 var (
@@ -122,8 +123,8 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 	}
 }
 
-func newTextPlistGenerator(w io.Writer) *textPlistGenerator {
-	return &textPlistGenerator{w}
+func newTextPlistGenerator(w io.Writer, format int) *textPlistGenerator {
+	return &textPlistGenerator{w, format}
 }
 
 type byteReader interface {

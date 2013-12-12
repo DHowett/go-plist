@@ -69,8 +69,8 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 		g = newXMLPlistGenerator(p.writer)
 	case BinaryFormat, AutomaticFormat:
 		g = newBplistGenerator(p.writer)
-	case OpenStepFormat:
-		g = newTextPlistGenerator(p.writer)
+	case OpenStepFormat, GNUStepFormat:
+		g = newTextPlistGenerator(p.writer, p.format)
 	}
 	g.generateDocument(pval)
 	return
