@@ -23,3 +23,15 @@ func BenchmarkOpenStepParse(b *testing.B) {
 		buf.Seek(0, 0)
 	}
 }
+
+func BenchmarkGNUStepParse(b *testing.B) {
+	buf := bytes.NewReader([]byte(plistValueTreeAsGNUStep))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		d := newTextPlistParser(buf)
+		d.parseDocument()
+		b.StopTimer()
+		buf.Seek(0, 0)
+	}
+}
