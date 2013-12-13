@@ -273,7 +273,7 @@ func (p *bplistGenerator) writeDateTag(t time.Time) {
 
 func (p *bplistGenerator) writeCountedTag(tag uint8, count uint64) {
 	marker := tag
-	if count > 0xF {
+	if count >= 0xF {
 		marker |= 0xF
 	} else {
 		marker |= uint8(count)
@@ -284,7 +284,7 @@ func (p *bplistGenerator) writeCountedTag(tag uint8, count uint64) {
 		panic(err)
 	}
 
-	if count > 0xF {
+	if count >= 0xF {
 		p.writeIntTag(count)
 	}
 }
