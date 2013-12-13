@@ -141,9 +141,26 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 		}
 	case Data:
 		b := pval.value.([]byte)
-		hexencoded := make([]byte, hex.EncodedLen(len(b)))
-		hex.Encode(hexencoded, b)
-		io.WriteString(p.writer, `<`+string(hexencoded)+`>`)
+		var hexencoded [9]byte
+		var l int
+		var asc = 9
+		hexencoded[8] = ' '
+
+		p.writer.Write([]byte(`<`))
+		for i := 0; i < len(b); i += 4 {
+			l = i + 4
+			if l >= len(b) {
+				l = len(b)
+				// We no longer need the space - or the rest of the buffer.
+				// (we used >= above to get this part without another conditional :P)
+				asc = (l - i) * 2
+			}
+			// Fill the buffer (only up to 8 characters, to preserve the space we implicitly include
+			// at the end of every encode)
+			hex.Encode(hexencoded[:8], b[i:l])
+			io.WriteString(p.writer, string(hexencoded[:asc]))
+		}
+		p.writer.Write([]byte(`>`))
 	case Date:
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`<*D`))
