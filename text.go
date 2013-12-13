@@ -26,6 +26,9 @@ func (p *textPlistGenerator) generateDocument(pval *plistValue) {
 }
 
 func plistQuotedString(str string) string {
+	if str == "" {
+		return `""`
+	}
 	s := ""
 	quot := false
 	for _, r := range str {
