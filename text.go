@@ -14,6 +14,8 @@ import (
 type textPlistGenerator struct {
 	writer io.Writer
 	format int
+
+	quotableTable *[4]uint64
 }
 
 var (
@@ -25,7 +27,7 @@ func (p *textPlistGenerator) generateDocument(pval *plistValue) {
 	p.writePlistValue(pval)
 }
 
-func plistQuotedString(str string) string {
+func (p *textPlistGenerator) plistQuotedString(str string) string {
 	if str == "" {
 		return `""`
 	}
@@ -46,7 +48,7 @@ func plistQuotedString(str string) string {
 			s += us
 		} else {
 			c := uint8(r)
-			if quotable[c/64]&(1<<(c%64)) > 0 {
+			if (*p.quotableTable)[c/64]&(1<<(c%64)) > 0 {
 				quot = true
 			}
 
@@ -87,7 +89,7 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 		dict := pval.value.(*dictionary)
 		dict.populateArrays()
 		for i, k := range dict.keys {
-			io.WriteString(p.writer, plistQuotedString(k)+`=`)
+			io.WriteString(p.writer, p.plistQuotedString(k)+`=`)
 			p.writePlistValue(dict.values[i])
 			p.writer.Write([]byte(`;`))
 		}
@@ -101,7 +103,7 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 		}
 		p.writer.Write([]byte(`)`))
 	case String:
-		io.WriteString(p.writer, plistQuotedString(pval.value.(string)))
+		io.WriteString(p.writer, p.plistQuotedString(pval.value.(string)))
 	case Integer:
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`<*I`))
@@ -148,13 +150,21 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 			io.WriteString(p.writer, pval.value.(time.Time).In(time.UTC).Format(textPlistTimeLayout))
 			p.writer.Write([]byte(`>`))
 		} else {
-			io.WriteString(p.writer, plistQuotedString(pval.value.(time.Time).In(time.UTC).Format(textPlistTimeLayout)))
+			io.WriteString(p.writer, p.plistQuotedString(pval.value.(time.Time).In(time.UTC).Format(textPlistTimeLayout)))
 		}
 	}
 }
 
 func newTextPlistGenerator(w io.Writer, format int) *textPlistGenerator {
-	return &textPlistGenerator{w, format}
+	table := &osQuotable
+	if format == GNUStepFormat {
+		table = &gsQuotable
+	}
+	return &textPlistGenerator{
+		writer:        w,
+		format:        format,
+		quotableTable: table,
+	}
 }
 
 type byteReader interface {
@@ -274,7 +284,8 @@ func (p *textPlistParser) parseUnquotedString() *plistValue {
 			panic(err)
 		}
 		// if we encounter a character that must be quoted, we're done.
-		if quotable[c/64]&(1<<(c%64)) > 0 {
+		// the GNUStep quote table is more lax here, so we use it instead of the OpenStep one.
+		if gsQuotable[c/64]&(1<<(c%64)) > 0 {
 			p.reader.UnreadByte()
 			break
 		}
