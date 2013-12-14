@@ -1,6 +1,7 @@
 package plist
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"reflect"
@@ -93,4 +94,14 @@ func NewEncoderForFormat(w io.Writer, format int) *Encoder {
 // NewBinaryEncoder returns an Encoder that writes a binary property list to w.
 func NewBinaryEncoder(w io.Writer) *Encoder {
 	return NewEncoderForFormat(w, BinaryFormat)
+}
+
+func Marshal(v interface{}, format int) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	enc := NewEncoderForFormat(buf, format)
+	err := enc.Encode(v)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

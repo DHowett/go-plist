@@ -101,3 +101,9 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 func NewDecoder(r io.ReadSeeker) *Decoder {
 	return &Decoder{Format: InvalidFormat, reader: r, lax: false}
 }
+
+func Unmarshal(data []byte, v interface{}) (err error) {
+	r := bytes.NewReader(data)
+	err = NewDecoder(r).Decode(v)
+	return
+}
