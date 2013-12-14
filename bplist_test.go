@@ -48,9 +48,10 @@ func TestVariousIllegalBplists(t *testing.T) {
 	}
 
 	for _, bplist := range bplists {
+		// We don't want the fallback behaviour for our bad file tests.
 		buf := bytes.NewReader(bplist)
-		d := NewDecoder(buf)
-		err := d.Decode(nil)
+		d := newBplistParser(buf)
+		_, err := d.parseDocument()
 		t.Logf("Error: %v", err)
 		if err == nil {
 			t.Error("Expected error, received nothing.")
