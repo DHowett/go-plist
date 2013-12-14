@@ -16,6 +16,11 @@ type textPlistGenerator struct {
 	format int
 
 	quotableTable *[4]uint64
+
+	indent string
+	depth  int
+
+	dictKvDelimiter, dictEntryDelimiter, arrayDelimiter []byte
 }
 
 var (
@@ -78,6 +83,26 @@ func (p *textPlistGenerator) plistQuotedString(str string) string {
 	return s
 }
 
+func (p *textPlistGenerator) deltaIndent(depthDelta int) {
+	if depthDelta < 0 {
+		p.depth--
+	} else if depthDelta > 0 {
+		p.depth++
+	}
+}
+
+func (p *textPlistGenerator) writeIndent() {
+	if len(p.indent) == 0 {
+		return
+	}
+	if len(p.indent) > 0 {
+		p.writer.Write([]byte("\n"))
+		for i := 0; i < p.depth; i++ {
+			io.WriteString(p.writer, p.indent)
+		}
+	}
+}
+
 func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 	if pval == nil {
 		return
@@ -86,21 +111,30 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 	switch pval.kind {
 	case Dictionary:
 		p.writer.Write([]byte(`{`))
+		p.deltaIndent(1)
 		dict := pval.value.(*dictionary)
 		dict.populateArrays()
 		for i, k := range dict.keys {
-			io.WriteString(p.writer, p.plistQuotedString(k)+`=`)
+			p.writeIndent()
+			io.WriteString(p.writer, p.plistQuotedString(k))
+			p.writer.Write(p.dictKvDelimiter)
 			p.writePlistValue(dict.values[i])
-			p.writer.Write([]byte(`;`))
+			p.writer.Write(p.dictEntryDelimiter)
 		}
+		p.deltaIndent(-1)
+		p.writeIndent()
 		p.writer.Write([]byte(`}`))
 	case Array:
 		p.writer.Write([]byte(`(`))
+		p.deltaIndent(1)
 		values := pval.value.([]*plistValue)
 		for _, v := range values {
+			p.writeIndent()
 			p.writePlistValue(v)
-			p.writer.Write([]byte(`,`))
+			p.writer.Write(p.arrayDelimiter)
 		}
+		p.deltaIndent(-1)
+		p.writeIndent()
 		p.writer.Write([]byte(`)`))
 	case String:
 		io.WriteString(p.writer, p.plistQuotedString(pval.value.(string)))
@@ -172,15 +206,28 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 	}
 }
 
+func (p *textPlistGenerator) Indent(i string) {
+	p.indent = i
+	if i == "" {
+		p.dictKvDelimiter = []byte(`=`)
+	} else {
+		// For pretty-printing
+		p.dictKvDelimiter = []byte(` = `)
+	}
+}
+
 func newTextPlistGenerator(w io.Writer, format int) *textPlistGenerator {
 	table := &osQuotable
 	if format == GNUStepFormat {
 		table = &gsQuotable
 	}
 	return &textPlistGenerator{
-		writer:        w,
-		format:        format,
-		quotableTable: table,
+		writer:             w,
+		format:             format,
+		quotableTable:      table,
+		dictKvDelimiter:    []byte(`=`),
+		arrayDelimiter:     []byte(`,`),
+		dictEntryDelimiter: []byte(`;`),
 	}
 }
 

@@ -10,12 +10,15 @@ import (
 
 type generator interface {
 	generateDocument(*plistValue)
+	Indent(string)
 }
 
 // An Encoder writes a property list to an output stream.
 type Encoder struct {
 	writer io.Writer
 	format int
+
+	indent string
 }
 
 // Encode writes the property list encoding of v to the connection.
@@ -73,8 +76,15 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 	case OpenStepFormat, GNUStepFormat:
 		g = newTextPlistGenerator(p.writer, p.format)
 	}
+	g.Indent(p.indent)
 	g.generateDocument(pval)
 	return
+}
+
+// Indent turns on pretty-printing for the XML and Text property list formats.
+// Each element begins on a new line and is preceded by one or more copies of indent according to its nesting depth.
+func (p *Encoder) Indent(indent string) {
+	p.indent = indent
 }
 
 // NewEncoder returns an Encoder that writes an XML property list to w.
@@ -97,8 +107,13 @@ func NewBinaryEncoder(w io.Writer) *Encoder {
 }
 
 func Marshal(v interface{}, format int) ([]byte, error) {
+	return MarshalIndent(v, format, "")
+}
+
+func MarshalIndent(v interface{}, format int, indent string) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	enc := NewEncoderForFormat(buf, format)
+	enc.Indent(indent)
 	err := enc.Encode(v)
 	if err != nil {
 		return nil, err

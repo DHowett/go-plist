@@ -352,6 +352,10 @@ func (p *bplistGenerator) writeArrayTag(arr []*plistValue) {
 	}
 }
 
+func (p *bplistGenerator) Indent(i string) {
+	// There's nothing to indent.
+}
+
 func newBplistGenerator(w io.Writer) *bplistGenerator {
 	return &bplistGenerator{
 		writer: &countedWriter{Writer: w},

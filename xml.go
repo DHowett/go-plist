@@ -116,6 +116,10 @@ func (p *xmlPlistGenerator) writePlistValue(pval *plistValue) {
 	}
 }
 
+func (p *xmlPlistGenerator) Indent(i string) {
+	p.xmlEncoder.Indent("", i)
+}
+
 func newXMLPlistGenerator(w io.Writer) *xmlPlistGenerator {
 	return &xmlPlistGenerator{w, xml.NewEncoder(w)}
 }
