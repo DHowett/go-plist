@@ -66,6 +66,16 @@ func (p *Decoder) unmarshalLaxString(s string, val reflect.Value) {
 		}
 		val.SetBool(b)
 		return
+	case reflect.Struct:
+		if val.Type() == timeType {
+			t, err := time.Parse(textPlistTimeLayout, s)
+			if err != nil {
+				panic(err)
+			}
+			val.Set(reflect.ValueOf(t.In(time.UTC)))
+			return
+		}
+		fallthrough
 	default:
 		panic(&incompatibleDecodeTypeError{val.Type(), String})
 	}
@@ -100,14 +110,14 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 		panic(incompatibleTypeError)
 	}
 
-	if val.CanInterface() && val.Type().Implements(textUnmarshalerType) {
+	if val.CanInterface() && val.Type().Implements(textUnmarshalerType) && val.Type() != timeType {
 		p.unmarshalTextInterface(pval, val.Interface().(encoding.TextUnmarshaler))
 		return
 	}
 
 	if val.CanAddr() {
 		pv := val.Addr()
-		if pv.CanInterface() && pv.Type().Implements(textUnmarshalerType) {
+		if pv.CanInterface() && pv.Type().Implements(textUnmarshalerType) && val.Type() != timeType {
 			p.unmarshalTextInterface(pval, pv.Interface().(encoding.TextUnmarshaler))
 			return
 		}
