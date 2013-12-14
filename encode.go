@@ -76,7 +76,9 @@ func NewBinaryEncoder(w io.Writer) *Encoder {
 	return NewEncoderForFormat(w, BinaryFormat)
 }
 
-// Marshal returns the property list encoding of v.
+// Marshal returns the property list encoding of v in specified format.
+//
+// Pass AutomaticFormat to allow the library to choose the best encoding (currently BinaryFormat).
 //
 // Marshal traverses the value v recursively.
 // Any nil values encountered, other than the root, will be silently discarded as

@@ -107,8 +107,12 @@ func NewDecoder(r io.ReadSeeker) *Decoder {
 // plain old data as strings, so we will attempt to recover integer, floating-point, boolean and date values wherever they are necessary.
 // (for example, if Unmarshal attempts to unmarshal an OpenStep property list into a time.Time, it will try to parse the string it
 // receives as a time.)
-func Unmarshal(data []byte, v interface{}) (err error) {
+//
+// Unmarshal returns the detected property list format and an error, if any.
+func Unmarshal(data []byte, v interface{}) (format int, err error) {
 	r := bytes.NewReader(data)
-	err = NewDecoder(r).Decode(v)
+	dec := NewDecoder(r)
+	err = dec.Decode(v)
+	format = dec.Format
 	return
 }
