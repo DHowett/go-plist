@@ -40,3 +40,11 @@ func mustParseFloat(str string, bits int) float64 {
 	}
 	return i
 }
+
+func mustParseBool(str string) bool {
+	i, err := strconv.ParseBool(str)
+	if err != nil {
+		panic(err)
+	}
+	return i
+}

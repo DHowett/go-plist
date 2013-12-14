@@ -4,7 +4,6 @@ import (
 	"encoding"
 	"fmt"
 	"reflect"
-	"strconv"
 	"time"
 )
 
@@ -39,31 +38,19 @@ func (p *Decoder) unmarshalTime(pval *plistValue, val reflect.Value) {
 func (p *Decoder) unmarshalLaxString(s string, val reflect.Value) {
 	switch val.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		i, err := strconv.ParseInt(s, 10, 64)
-		if err != nil {
-			panic(err)
-		}
+		i := mustParseInt(s, 10, 64)
 		val.SetInt(i)
 		return
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		i, err := strconv.ParseUint(s, 10, 64)
-		if err != nil {
-			panic(err)
-		}
+		i := mustParseUint(s, 10, 64)
 		val.SetUint(i)
 		return
 	case reflect.Float32, reflect.Float64:
-		f, err := strconv.ParseFloat(s, 64)
-		if err != nil {
-			panic(err)
-		}
+		f := mustParseFloat(s, 64)
 		val.SetFloat(f)
 		return
 	case reflect.Bool:
-		b, err := strconv.ParseBool(s)
-		if err != nil {
-			panic(err)
-		}
+		b := mustParseBool(s)
 		val.SetBool(b)
 		return
 	case reflect.Struct:
