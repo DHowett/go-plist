@@ -32,7 +32,7 @@ func BenchmarkBplistDecode(b *testing.B) {
 }
 
 func TestLaxDecode(t *testing.T) {
-	var laxTestDataStringsOnlyAsXML = "<plist><dict><key>B</key><string>1</string><key>D</key><string>2013-11-27T00:34:00Z</string><key>F64</key><string>3</string><key>I64</key><string>1</string><key>U64</key><string>2</string></dict></plist>"
+	var laxTestDataStringsOnlyAsXML = `{B=1;D="2013-11-27 00:34:00 +0000";I64=1;F64="3.0";U64=2;}`
 	d := LaxTestData{}
 	buf := bytes.NewReader([]byte(laxTestDataStringsOnlyAsXML))
 	decoder := NewDecoder(buf)
@@ -109,10 +109,6 @@ func TestIllegalDecode(t *testing.T) {
 func TestDecode(t *testing.T) {
 	var failed bool
 	for _, test := range tests {
-		if test.SkipDecode {
-			continue
-		}
-
 		failed = false
 
 		t.Logf("Testing Decode (%s)", test.Name)
@@ -122,97 +118,60 @@ func TestDecode(t *testing.T) {
 			d = test.Data
 		}
 
-		testData := reflect.ValueOf(test.Data)
+		testData := reflect.ValueOf(d)
 		if !testData.IsValid() || isEmptyInterface(testData) {
 			continue
 		}
 		if testData.Kind() == reflect.Ptr || testData.Kind() == reflect.Interface {
 			testData = testData.Elem()
 		}
-		//typ := testData.Type()
+		d = testData.Interface()
 
-		var err error
-		var bval interface{}
-		var xval interface{}
-		var val interface{}
+		results := make(map[int]interface{})
+		errors := make(map[int]error)
+		for fmt, dat := range test.Expected {
+			if test.SkipDecode[fmt] {
+				continue
+			}
+			val := reflect.New(testData.Type()).Interface()
+			_, errors[fmt] = Unmarshal(dat, val)
 
-		if test.ExpectedBin != nil {
-			bval = reflect.New(testData.Type()).Interface()
-			buf := bytes.NewReader(test.ExpectedBin)
-			decoder := NewDecoder(buf)
-			err = decoder.Decode(bval)
-			vt := reflect.ValueOf(bval)
+			vt := reflect.ValueOf(val)
 			if vt.Kind() == reflect.Ptr || vt.Kind() == reflect.Interface {
 				vt = vt.Elem()
-				bval = vt.Interface()
+				val = vt.Interface()
 			}
-			val = bval
-			if !reflect.DeepEqual(d, bval) {
+
+			results[fmt] = val
+
+			if !reflect.DeepEqual(d, val) {
 				failed = true
 			}
 		}
 
-		if !test.SkipDecodeXML && test.ExpectedXML != "" {
-			xval = reflect.New(testData.Type()).Interface()
-			buf := bytes.NewReader([]byte(test.ExpectedXML))
-			decoder := NewDecoder(buf)
-			err = decoder.Decode(xval)
-			vt := reflect.ValueOf(xval)
-			if vt.Kind() == reflect.Ptr || vt.Kind() == reflect.Interface {
-				vt = vt.Elem()
-				xval = vt.Interface()
-			}
-			val = xval
-			if !reflect.DeepEqual(d, xval) {
-				failed = true
-			}
-		}
-
-		if bval != nil && xval != nil {
-			if !reflect.DeepEqual(bval, xval) {
+		if results[BinaryFormat] != nil && results[XMLFormat] != nil {
+			if !reflect.DeepEqual(results[BinaryFormat], results[XMLFormat]) {
 				t.Log("Binary and XML decoding yielded different values.")
-				t.Log("Binary:", bval)
-				t.Log("XML   :", xval)
+				t.Log("Binary:", results[BinaryFormat])
+				t.Log("XML   :", results[XMLFormat])
 				failed = true
 			}
 		}
 
 		if failed {
-			t.Log("Expected:", d)
+			t.Logf("Expected: %#v\n", d)
 
-			if err == nil {
-				t.Log("Received:", val)
-			} else {
-				t.Log("   Error:", err)
+			for fmt, dat := range results {
+				t.Logf("Received %s: %#v\n", FormatNames[fmt], dat)
+			}
+			for fmt, err := range errors {
+				if err != nil {
+					t.Logf("Error %s: %v\n", FormatNames[fmt], err)
+				}
 			}
 			t.Log("FAILED")
 			t.Fail()
 		}
-	}
-}
-
-func TestOSDecode(t *testing.T) {
-	for _, test := range tests {
-		if test.SkipDecode {
-			continue
-		}
-
-		t.Logf("Testing Transcode (%s)", test.Name)
-		osbuf := &bytes.Buffer{}
-		enc := NewEncoderForFormat(osbuf, OpenStepFormat)
-		err := enc.Encode(test.Data)
-		if err != nil {
-			t.Log(err)
-			continue
-		}
-
-		t.Log("I:", osbuf.String())
-		rbuf := bytes.NewReader(osbuf.Bytes())
-		pars := newTextPlistParser(rbuf)
-		pval, _ := pars.parseDocument()
-		var dat interface{}
-		(&Decoder{}).unmarshal(pval, reflect.ValueOf(&dat))
-		t.Log("O:", dat)
 	}
 }
 
