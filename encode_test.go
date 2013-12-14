@@ -30,11 +30,17 @@ func TestEncode(t *testing.T) {
 		failed = false
 		t.Logf("Testing Encode (%s)", test.Name)
 
-		results := make(map[int][]byte)
+		// A test that should render no output!
 		errors := make(map[int]error)
+		if test.ShouldFail && len(test.Expected) == 0 {
+			_, err := Marshal(test.Data, XMLFormat)
+			failed = failed || (test.ShouldFail && err == nil)
+		}
+
+		results := make(map[int][]byte)
 		for fmt, dat := range test.Expected {
 			results[fmt], errors[fmt] = Marshal(test.Data, fmt)
-			failed = failed || (test.ShouldFail && errors[fmt] != nil)
+			failed = failed || (test.ShouldFail && errors[fmt] == nil)
 			failed = failed || !bytes.Equal(dat, results[fmt])
 		}
 
