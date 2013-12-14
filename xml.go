@@ -13,7 +13,8 @@ import (
 	"time"
 )
 
-const xmlDOCTYPE = `DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"`
+const xmlDOCTYPE = `<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+`
 
 type xmlPlistGenerator struct {
 	writer     io.Writer
@@ -21,20 +22,13 @@ type xmlPlistGenerator struct {
 }
 
 func (p *xmlPlistGenerator) generateDocument(pval *plistValue) {
-	p.writer.Write([]byte(xml.Header))
-	p.xmlEncoder.EncodeToken(xml.Directive(xmlDOCTYPE))
+	io.WriteString(p.writer, xml.Header)
+	io.WriteString(p.writer, xmlDOCTYPE)
 
 	plistStartElement := xml.StartElement{
-		Name: xml.Name{
-			Local: "plist",
-		},
-		Attr: []xml.Attr{
-			{
-				Name: xml.Name{
-					Local: "version",
-				},
-				Value: "1.0",
-			},
+		xml.Name{"", "plist"},
+		[]xml.Attr{
+			{xml.Name{"", "version"}, "1.0"},
 		},
 	}
 
