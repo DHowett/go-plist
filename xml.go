@@ -8,7 +8,6 @@ import (
 	"io"
 	"math"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -115,7 +114,8 @@ func (p *xmlPlistGenerator) Indent(i string) {
 }
 
 func newXMLPlistGenerator(w io.Writer) *xmlPlistGenerator {
-	return &xmlPlistGenerator{w, xml.NewEncoder(w)}
+	mw := mustWriter{w}
+	return &xmlPlistGenerator{mw, xml.NewEncoder(mw)}
 }
 
 type xmlPlistParser struct {
@@ -193,16 +193,10 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 
 		s := string(charData)
 		if s[0] == '-' {
-			n, err := strconv.ParseInt(string(charData), 10, 64)
-			if err != nil {
-				panic(err)
-			}
+			n := mustParseInt(string(charData), 10, 64)
 			return &plistValue{Integer, signedInt{uint64(n), true}}
 		} else {
-			n, err := strconv.ParseUint(string(charData), 10, 64)
-			if err != nil {
-				panic(err)
-			}
+			n := mustParseUint(string(charData), 10, 64)
 			return &plistValue{Integer, signedInt{n, false}}
 		}
 	case "real":
@@ -212,11 +206,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 			panic(err)
 		}
 
-		n, err := strconv.ParseFloat(string(charData), 64)
-		if err != nil {
-			panic(err)
-		}
-
+		n := mustParseFloat(string(charData), 64)
 		return &plistValue{Real, sizedFloat{n, 64}}
 	case "true", "false":
 		p.ntags++

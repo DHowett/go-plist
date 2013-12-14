@@ -222,7 +222,7 @@ func newTextPlistGenerator(w io.Writer, format int) *textPlistGenerator {
 		table = &gsQuotable
 	}
 	return &textPlistGenerator{
-		writer:             w,
+		writer:             mustWriter{w},
 		format:             format,
 		quotableTable:      table,
 		dictKvDelimiter:    []byte(`=`),
@@ -316,19 +316,13 @@ func (p *textPlistParser) parseQuotedString() *plistValue {
 				}
 				hex := make([]byte, l)
 				p.reader.Read(hex)
-				newc, err := strconv.ParseInt(string(hex), 16, 16)
-				if err != nil && err != io.EOF {
-					panic(err)
-				}
+				newc := mustParseInt(string(hex), 16, 16)
 				c = rune(newc)
 			case '0', '1', '2', '3', '4', '5', '6', '7': // octal!
 				oct := make([]byte, 3)
 				oct[0] = uint8(c)
 				p.reader.Read(oct[1:])
-				newc, err := strconv.ParseInt(string(oct), 8, 16)
-				if err != nil && err != io.EOF {
-					panic(err)
-				}
+				newc := mustParseInt(string(oct), 8, 16)
 				c = rune(newc)
 			}
 		}
@@ -445,23 +439,14 @@ func (p *textPlistParser) parseGNUStepValue(v []byte) *plistValue {
 	switch typ {
 	case 'I':
 		if v[0] == '-' {
-			n, err := strconv.ParseInt(string(v), 10, 64)
-			if err != nil {
-				panic(err)
-			}
+			n := mustParseInt(string(v), 10, 64)
 			return &plistValue{Integer, signedInt{uint64(n), true}}
 		} else {
-			n, err := strconv.ParseUint(string(v), 10, 64)
-			if err != nil {
-				panic(err)
-			}
+			n := mustParseUint(string(v), 10, 64)
 			return &plistValue{Integer, signedInt{n, false}}
 		}
 	case 'R':
-		n, err := strconv.ParseFloat(string(v), 64)
-		if err != nil {
-			panic(err)
-		}
+		n := mustParseFloat(string(v), 64)
 		return &plistValue{Real, sizedFloat{n, 64}}
 	case 'B':
 		b := v[0] == 'Y'

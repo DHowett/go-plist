@@ -9,7 +9,6 @@ import (
 	"io"
 	"math"
 	"runtime"
-	"strconv"
 	"time"
 	"unicode/utf16"
 )
@@ -193,10 +192,7 @@ func (p *bplistGenerator) writeSizedInt(n uint64, nbytes int) {
 	default:
 		panic(errors.New("illegal integer size"))
 	}
-	err := binary.Write(p.writer, binary.BigEndian, val)
-	if err != nil {
-		panic(err)
-	}
+	binary.Write(p.writer, binary.BigEndian, val)
 }
 
 func (p *bplistGenerator) writeBoolTag(v bool) {
@@ -204,10 +200,7 @@ func (p *bplistGenerator) writeBoolTag(v bool) {
 	if v {
 		tag = bpTagBoolTrue
 	}
-	err := binary.Write(p.writer, binary.BigEndian, tag)
-	if err != nil {
-		panic(err)
-	}
+	binary.Write(p.writer, binary.BigEndian, tag)
 }
 
 func (p *bplistGenerator) writeIntTag(n uint64) {
@@ -227,15 +220,9 @@ func (p *bplistGenerator) writeIntTag(n uint64) {
 		val = n
 		tag = bpTagInteger | 0x3
 	}
-	err := binary.Write(p.writer, binary.BigEndian, tag)
-	if err != nil {
-		panic(err)
-	}
 
-	err = binary.Write(p.writer, binary.BigEndian, val)
-	if err != nil {
-		panic(err)
-	}
+	binary.Write(p.writer, binary.BigEndian, tag)
+	binary.Write(p.writer, binary.BigEndian, val)
 }
 
 func (p *bplistGenerator) writeRealTag(n float64, bits int) {
@@ -245,30 +232,18 @@ func (p *bplistGenerator) writeRealTag(n float64, bits int) {
 		val = float32(n)
 		tag = bpTagReal | 0x2
 	}
-	err := binary.Write(p.writer, binary.BigEndian, tag)
-	if err != nil {
-		panic(err)
-	}
 
-	err = binary.Write(p.writer, binary.BigEndian, val)
-	if err != nil {
-		panic(err)
-	}
+	binary.Write(p.writer, binary.BigEndian, tag)
+	binary.Write(p.writer, binary.BigEndian, val)
 }
 
 func (p *bplistGenerator) writeDateTag(t time.Time) {
 	tag := uint8(bpTagDate) | 0x3
 	val := float64(t.In(time.UTC).UnixNano()) / float64(time.Second)
 	val -= 978307200 // Adjust to Apple Epoch
-	err := binary.Write(p.writer, binary.BigEndian, tag)
-	if err != nil {
-		panic(err)
-	}
 
-	err = binary.Write(p.writer, binary.BigEndian, val)
-	if err != nil {
-		panic(err)
-	}
+	binary.Write(p.writer, binary.BigEndian, tag)
+	binary.Write(p.writer, binary.BigEndian, val)
 }
 
 func (p *bplistGenerator) writeCountedTag(tag uint8, count uint64) {
@@ -279,10 +254,7 @@ func (p *bplistGenerator) writeCountedTag(tag uint8, count uint64) {
 		marker |= uint8(count)
 	}
 
-	err := binary.Write(p.writer, binary.BigEndian, marker)
-	if err != nil {
-		panic(err)
-	}
+	binary.Write(p.writer, binary.BigEndian, marker)
 
 	if count >= 0xF {
 		p.writeIntTag(count)
@@ -291,29 +263,21 @@ func (p *bplistGenerator) writeCountedTag(tag uint8, count uint64) {
 
 func (p *bplistGenerator) writeDataTag(data []byte) {
 	p.writeCountedTag(bpTagData, uint64(len(data)))
-	err := binary.Write(p.writer, binary.BigEndian, data)
-	if err != nil {
-		panic(err)
-	}
+	binary.Write(p.writer, binary.BigEndian, data)
 }
 
 func (p *bplistGenerator) writeStringTag(str string) {
-	var err error
 	for _, r := range str {
 		if r > 0xFF {
 			utf16Runes := utf16.Encode([]rune(str))
 			p.writeCountedTag(bpTagUTF16String, uint64(len(utf16Runes)))
-			err = binary.Write(p.writer, binary.BigEndian, utf16Runes)
+			binary.Write(p.writer, binary.BigEndian, utf16Runes)
 			return
 		}
 	}
 
 	p.writeCountedTag(bpTagASCIIString, uint64(len(str)))
-	err = binary.Write(p.writer, binary.BigEndian, []byte(str))
-
-	if err != nil {
-		panic(err)
-	}
+	binary.Write(p.writer, binary.BigEndian, []byte(str))
 }
 
 func (p *bplistGenerator) writeDictionaryTag(dict *dictionary) {
@@ -358,7 +322,7 @@ func (p *bplistGenerator) Indent(i string) {
 
 func newBplistGenerator(w io.Writer) *bplistGenerator {
 	return &bplistGenerator{
-		writer: &countedWriter{Writer: w},
+		writer: &countedWriter{Writer: mustWriter{w}},
 	}
 }
 
@@ -399,11 +363,7 @@ func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
 		panic(err)
 	}
 
-	if version, err := strconv.ParseInt(string(ver), 10, 0); err == nil {
-		p.version = int(version)
-	} else {
-		panic(err)
-	}
+	p.version = int(mustParseInt(string(ver), 10, 0))
 
 	if p.version > 1 {
 		panic(fmt.Errorf("unexpected version %d", p.version))
