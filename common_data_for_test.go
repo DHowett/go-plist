@@ -6,12 +6,6 @@ import (
 	"time"
 )
 
-type nilWriter int
-
-func (w nilWriter) Write(p []byte) (int, error) {
-	return len(p), nil
-}
-
 type TestData struct {
 	Name          string
 	Data          interface{}

@@ -2,12 +2,13 @@ package plist
 
 import (
 	"bytes"
+	"io/ioutil"
 	"testing"
 )
 
 func BenchmarkXMLGenerate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		d := newXMLPlistGenerator(nilWriter(0))
+		d := newXMLPlistGenerator(ioutil.Discard)
 		d.generateDocument(plistValueTree)
 	}
 }

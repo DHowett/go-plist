@@ -2,12 +2,13 @@ package plist
 
 import (
 	"bytes"
+	"io/ioutil"
 	"testing"
 )
 
 func BenchmarkBplistGenerate(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		d := newBplistGenerator(nilWriter(0))
+		d := newBplistGenerator(ioutil.Discard)
 		d.generateDocument(plistValueTree)
 	}
 }
