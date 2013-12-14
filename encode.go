@@ -117,8 +117,7 @@ func MarshalIndent(v interface{}, format int, indent string) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	enc := NewEncoderForFormat(buf, format)
 	enc.Indent(indent)
-	err := enc.Encode(v)
-	if err != nil {
+	if err := enc.Encode(v); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
