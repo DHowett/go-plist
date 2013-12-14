@@ -21,37 +21,7 @@ type Encoder struct {
 	indent string
 }
 
-// Encode writes the property list encoding of v to the connection.
-//
-// Encode traverses the value v recursively.
-// Any nil values encountered, other than the root, will be silently discarded as
-// the property list format bears no representation for nil values.
-//
-// Strings, integers of varying size, floats and booleans are encoded unchanged.
-// Strings bearing non-ASCII runes will be encoded differently depending upon the property list format:
-// UTF-8 for XML property lists and UTF-16 for binary property lists.
-//
-// Slice and Array values are encoded as property list arrays, except for
-// []byte values, which are encoded as data.
-//
-// Map values encode as dictionaries. The map's key type must be string; there is no provision for encoding non-string dictionary keys.
-//
-// Struct values are encoded as dictionaries, with only exported fields being serialized. Struct field encoding may be influenced with the use of tags.
-// The tag format is:
-//
-//     `plist:"<key>[,flags...]"`
-//
-// The following flags are supported:
-//
-//     omitempty    Only include the field if it is not set to the zero value for its type.
-//
-// If the key is "-", the field is ignored.
-//
-// Anonymous struct fields are encoded as if their exported fields were exposed via the outer struct.
-//
-// Pointer values encode as the value pointed to.
-//
-// Channel, complex and function values cannot be encoded. Any attempt to do so causes Encode to return an error.
+// Encode writes the property list encoding of v to the stream.
 func (p *Encoder) Encode(v interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -106,10 +76,43 @@ func NewBinaryEncoder(w io.Writer) *Encoder {
 	return NewEncoderForFormat(w, BinaryFormat)
 }
 
+// Marshal returns the property list encoding of v.
+//
+// Marshal traverses the value v recursively.
+// Any nil values encountered, other than the root, will be silently discarded as
+// the property list format bears no representation for nil values.
+//
+// Strings, integers of varying size, floats and booleans are encoded unchanged.
+// Strings bearing non-ASCII runes will be encoded differently depending upon the property list format:
+// UTF-8 for XML property lists and UTF-16 for binary property lists.
+//
+// Slice and Array values are encoded as property list arrays, except for
+// []byte values, which are encoded as data.
+//
+// Map values encode as dictionaries. The map's key type must be string; there is no provision for encoding non-string dictionary keys.
+//
+// Struct values are encoded as dictionaries, with only exported fields being serialized. Struct field encoding may be influenced with the use of tags.
+// The tag format is:
+//
+//     `plist:"<key>[,flags...]"`
+//
+// The following flags are supported:
+//
+//     omitempty    Only include the field if it is not set to the zero value for its type.
+//
+// If the key is "-", the field is ignored.
+//
+// Anonymous struct fields are encoded as if their exported fields were exposed via the outer struct.
+//
+// Pointer values encode as the value pointed to.
+//
+// Channel, complex and function values cannot be encoded. Any attempt to do so causes Marshal to return an error.
 func Marshal(v interface{}, format int) ([]byte, error) {
 	return MarshalIndent(v, format, "")
 }
 
+// MarshalIndent works like Marshal, but each property list element
+// begins on a new line and is preceded by one or more copies of indent according to its nesting depth.
 func MarshalIndent(v interface{}, format int, indent string) ([]byte, error) {
 	buf := &bytes.Buffer{}
 	enc := NewEncoderForFormat(buf, format)
