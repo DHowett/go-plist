@@ -186,6 +186,32 @@ func TestInterfaceDecode(t *testing.T) {
 	}
 }
 
+func TestFormatDetection(t *testing.T) {
+	type formatTest struct {
+		expectedFormat int
+		data           []byte
+	}
+	plists := []formatTest{
+		{BinaryFormat, []byte{98, 112, 108, 105, 115, 116, 48, 48, 85, 72, 101, 108, 108, 111, 8, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14}},
+		{XMLFormat, []byte(`<string>&lt;*I3&gt;</string>`)},
+		{InvalidFormat, []byte(`bplist00`)}, // Looks like a binary property list, and bplist does not have fallbacks(!)
+		{OpenStepFormat, []byte(`(1,2,3,4,5)`)},
+		{OpenStepFormat, []byte(`<abab>`)},
+		{GNUStepFormat, []byte(`(1,2,<*I3>)`)},
+		{OpenStepFormat, []byte{0x00}},
+	}
+
+	for _, fmttest := range plists {
+		fmt, err := Unmarshal(fmttest.data, nil)
+		if fmt != fmttest.expectedFormat {
+			t.Errorf("Wanted %s, received %s.", FormatNames[fmttest.expectedFormat], FormatNames[fmt])
+		}
+		if err != nil {
+			t.Logf("Error: %v", err)
+		}
+	}
+}
+
 func ExampleDecoder_Decode() {
 	type sparseBundleHeader struct {
 		InfoDictionaryVersion string `plist:"CFBundleInfoDictionaryVersion"`
