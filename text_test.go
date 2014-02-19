@@ -36,3 +36,22 @@ func BenchmarkGNUStepParse(b *testing.B) {
 		buf.Seek(0, 0)
 	}
 }
+
+func TestTextCommentDecode(t *testing.T) {
+	var testData = "{A=1 /* A is 1 because it is the first letter */;\nB=2; // B is 2 because comment-to-end-of-line.\nC=3;}"
+	type D struct{ A, B, C int }
+	actual := D{1, 2, 3}
+	var parsed D
+	buf := bytes.NewReader([]byte(testData))
+	decoder := NewDecoder(buf)
+	err := decoder.Decode(&parsed)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	if actual != parsed {
+		t.Logf("Expected: %#v", actual)
+		t.Logf("Received: %#v", parsed)
+		t.Fail()
+	}
+}

@@ -268,6 +268,44 @@ func (p *textPlistParser) chugWhitespace() {
 			panic(err)
 		}
 		if whitespace[c/64]&(1<<(c%64)) == 0 {
+			if c == '/' && err != io.EOF {
+				// A / at the end of the file is not the begining of a comment.
+				c, err = p.reader.ReadByte()
+				if err != nil && err != io.EOF {
+					panic(err)
+				}
+				switch c {
+				case '/':
+					for {
+						c, err = p.reader.ReadByte()
+						if err != nil && err != io.EOF {
+							panic(err)
+						} else if err == io.EOF {
+							break
+						}
+						// TODO: UTF-8
+						if c == '\n' || c == '\r' {
+							break
+						}
+					}
+				case '*':
+					star := false
+					for {
+						c, err = p.reader.ReadByte()
+						if err != nil {
+							panic(err)
+						}
+						if c == '*' {
+							star = true
+						} else if c == '/' && star {
+							break
+						} else {
+							star = false
+						}
+					}
+				}
+				continue
+			}
 			p.reader.UnreadByte()
 			break
 		}
