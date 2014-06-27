@@ -225,6 +225,27 @@ func (p *bplistGenerator) writeIntTag(n uint64) {
 	binary.Write(p.writer, binary.BigEndian, val)
 }
 
+func (p *bplistGenerator) writeUidTag(n uint64) {
+	var tag uint8
+	var val interface{}
+	switch {
+	case n <= uint64(0xff):
+		val = uint8(n)
+		tag = bpTagUID | 0x0
+	case n <= uint64(0xffff):
+		val = uint16(n)
+		tag = bpTagUID | 0x1
+	case n <= uint64(0xffffffff):
+		val = uint32(n)
+		tag = bpTagUID | 0x2
+	default:
+		val = n
+		tag = bpTagUID | 0x3
+	}
+
+	binary.Write(p.writer, binary.BigEndian, tag)
+	binary.Write(p.writer, binary.BigEndian, val)
+}
 func (p *bplistGenerator) writeRealTag(n float64, bits int) {
 	var tag uint8 = bpTagReal | 0x3
 	var val interface{} = n
@@ -281,6 +302,10 @@ func (p *bplistGenerator) writeStringTag(str string) {
 }
 
 func (p *bplistGenerator) writeDictionaryTag(dict *dictionary) {
+	if dict.Len() == 1 && dict.keys[0] == "CF$UID" {
+		p.writeUidTag(dict.values[0].value.(signedInt).value)
+		return
+	}
 	p.writeCountedTag(bpTagDictionary, uint64(dict.count))
 	vals := make([]uint64, dict.count*2)
 	cnt := dict.count
@@ -508,7 +533,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 		}
 	case bpTagUID: // Somehow different than int: low half is nbytes - 1 instead of log2(nbytes)
 		val := p.readSizedInt(int(tag&0xF) + 1)
-		return &plistValue{Integer, signedInt{val, false}}
+		return &plistValue{Dictionary, &dictionary{m: map[string]*plistValue{"CF$UID": &plistValue{Integer, signedInt{val, false}}}}}
 	case bpTagDictionary:
 		cnt := p.countForTag(tag)
 
