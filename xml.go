@@ -27,13 +27,13 @@ func (p *xmlPlistGenerator) generateDocument(pval *plistValue) {
 	plistStartElement := xml.StartElement{
 		Name: xml.Name{
 			Space: "",
-			Name:  "plist",
+			Local: "plist",
 		},
-		Attr: []xml.Attr{
+		Attr: []xml.Attr{{
 			Name: xml.Name{
 				Space: "",
-				Name:  "version"},
-			Value: "1.0",
+				Local: "version"},
+			Value: "1.0"},
 		},
 	}
 
