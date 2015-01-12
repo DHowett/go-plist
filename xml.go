@@ -246,7 +246,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 		return &plistValue{Data, bytes[:l]}
 	case "dict":
 		p.ntags++
-		var key string
+		var key *string
 		var subvalues map[string]*plistValue = make(map[string]*plistValue)
 		for {
 			token, err := p.xmlDecoder.Token()
@@ -255,7 +255,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 			}
 
 			if el, ok := token.(xml.EndElement); ok && el.Name.Local == "dict" {
-				if key != "" {
+				if key != nil {
 					panic(errors.New("missing value in dictionary"))
 				}
 				break
@@ -263,13 +263,15 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 
 			if el, ok := token.(xml.StartElement); ok {
 				if el.Name.Local == "key" {
-					p.xmlDecoder.DecodeElement(&key, &el)
+					var k string
+					p.xmlDecoder.DecodeElement(&k, &el)
+					key = &k
 				} else {
-					if key == "" {
+					if key == nil {
 						panic(errors.New("missing key in dictionary"))
 					}
-					subvalues[key] = p.parseXMLElement(el)
-					key = ""
+					subvalues[*key] = p.parseXMLElement(el)
+					key = nil
 				}
 			}
 		}
