@@ -410,7 +410,7 @@ func (p *textPlistParser) parseDictionary() *plistValue {
 			p.reader.UnreadByte() // Whoops, ate part of the string
 			keypv = p.parseUnquotedString()
 		}
-		if keypv == nil || keypv.value.(string) == "" {
+		if keypv == nil {
 			// TODO better error
 			panic(errors.New("missing dictionary key"))
 		}
