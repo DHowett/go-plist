@@ -530,8 +530,20 @@ var tests = []TestData{
 	},
 	{
 		Name:       "A Function",
-		Data:       func() { },
+		Data:       func() {},
 		ShouldFail: true,
+	},
+	{
+		Name: "A map with a blank key",
+		Data: map[string]string{
+			"": "Hello",
+		},
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte(`{""=Hello;}`),
+			GNUStepFormat:  []byte(`{""=Hello;}`),
+			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key></key><string>Hello</string></dict></plist>`),
+			BinaryFormat:   []byte{98, 112, 108, 105, 115, 116, 48, 48, 209, 1, 2, 80, 85, 72, 101, 108, 108, 111, 8, 11, 12, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18},
+		},
 	},
 }
 
