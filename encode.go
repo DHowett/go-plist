@@ -51,6 +51,24 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 	return
 }
 
+// NewRawPlistValue works like Marshal only it write to a new raw property list value, which can then be reused later with Marshal or Encode
+func NewRawPlistValue(v interface{}) (data RawPlistValue, err error) {
+	enc := Encoder{}
+
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+			err = r.(error)
+		}
+	}()
+
+	pval := enc.marshal(reflect.ValueOf(v))
+	data = RawPlistValue(*pval)
+	return
+}
+
 // Indent turns on pretty-printing for the XML and Text property list formats.
 // Each element begins on a new line and is preceded by one or more copies of indent according to its nesting depth.
 func (p *Encoder) Indent(indent string) {

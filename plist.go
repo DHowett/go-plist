@@ -53,6 +53,8 @@ var plistKindNames map[plistKind]string = map[plistKind]string{
 	Date:       "date",
 }
 
+type RawPlistValue plistValue
+
 type plistValue struct {
 	kind  plistKind
 	value interface{}

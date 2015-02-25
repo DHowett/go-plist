@@ -91,6 +91,14 @@ func (p *Encoder) marshal(val reflect.Value) *plistValue {
 		val = val.Elem()
 	}
 
+	if val.Kind() == reflect.Struct && val.Type() == reflect.TypeOf(RawPlistValue{}) {
+		raw, ok := val.Interface().(RawPlistValue)
+		if ok {
+			pval := plistValue(raw)
+			return &pval
+		}
+	}
+
 	// We got this far and still may have an invalid anything or nil ptr/interface
 	if !val.IsValid() || ((val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface) && val.IsNil()) {
 		return nil

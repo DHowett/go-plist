@@ -80,6 +80,11 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 		val = val.Elem()
 	}
 
+	if val.Type() == reflect.TypeOf(RawPlistValue{}) {
+		val.Set(reflect.ValueOf(RawPlistValue(*pval)))
+		return
+	}
+
 	if isEmptyInterface(val) {
 		v := p.valueInterface(pval)
 		val.Set(reflect.ValueOf(v))

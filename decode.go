@@ -116,3 +116,21 @@ func Unmarshal(data []byte, v interface{}) (format int, err error) {
 	format = dec.Format
 	return
 }
+
+// Decode works like Unmarshal, except it operates on the raw property list value.
+func (data RawPlistValue) Decode(v interface{}) (err error) {
+	dec := Decoder{}
+	pval := plistValue(data)
+
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+			err = r.(error)
+		}
+	}()
+
+	dec.unmarshal(&pval, reflect.ValueOf(v))
+	return
+}

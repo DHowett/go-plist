@@ -112,6 +112,20 @@ var tests = []TestData{
 		},
 	},
 	{
+		Name: "Raw Plist Value",
+		Data: struct {
+			Name RawPlistValue
+		}{
+			Name: RawPlistValue{String, "Dustin"},
+		},
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte(`{Name=Dustin;}`),
+			GNUStepFormat:  []byte(`{Name=Dustin;}`),
+			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string></dict></plist>`),
+			BinaryFormat:   []byte{98, 112, 108, 105, 115, 116, 48, 48, 209, 1, 2, 84, 78, 97, 109, 101, 86, 68, 117, 115, 116, 105, 110, 8, 11, 16, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 23},
+		},
+	},
+	{
 		Name: "Basic Structure with non-exported fields",
 		Data: struct {
 			Name string
