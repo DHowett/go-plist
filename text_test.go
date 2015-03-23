@@ -38,9 +38,19 @@ func BenchmarkGNUStepParse(b *testing.B) {
 }
 
 func TestTextCommentDecode(t *testing.T) {
-	var testData = "{A=1 /* A is 1 because it is the first letter */;\nB=2; // B is 2 because comment-to-end-of-line.\nC=3;}"
-	type D struct{ A, B, C int }
-	actual := D{1, 2, 3}
+	var testData = `{
+		A=1 /* A is 1 because it is the first letter */;
+		B=2; // B is 2 because comment-to-end-of-line.
+		C=3;
+		S = /not/a/comment/;
+		S2 = /not*a/*comm*en/t;
+	}`
+	type D struct {
+		A, B, C int
+		S       string
+		S2      string
+	}
+	actual := D{1, 2, 3, "/not/a/comment/", "/not*a/*comm*en/t"}
 	var parsed D
 	buf := bytes.NewReader([]byte(testData))
 	decoder := NewDecoder(buf)
