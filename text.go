@@ -234,6 +234,7 @@ func newTextPlistGenerator(w io.Writer, format int) *textPlistGenerator {
 type byteReader interface {
 	io.Reader
 	io.ByteScanner
+	Peek(n int) ([]byte, error)
 	ReadBytes(delim byte) ([]byte, error)
 }
 
@@ -262,6 +263,7 @@ func (p *textPlistParser) parseDocument() (pval *plistValue, parseError error) {
 }
 
 func (p *textPlistParser) chugWhitespace() {
+ws:
 	for {
 		c, err := p.reader.ReadByte()
 		if err != nil && err != io.EOF {
@@ -270,10 +272,11 @@ func (p *textPlistParser) chugWhitespace() {
 		if whitespace[c/64]&(1<<(c%64)) == 0 {
 			if c == '/' && err != io.EOF {
 				// A / at the end of the file is not the begining of a comment.
-				c, err = p.reader.ReadByte()
+				cs, err := p.reader.Peek(1)
 				if err != nil && err != io.EOF {
 					panic(err)
 				}
+				c = cs[0]
 				switch c {
 				case '/':
 					for {
@@ -289,6 +292,8 @@ func (p *textPlistParser) chugWhitespace() {
 						}
 					}
 				case '*':
+					// Peek returned a value here, so it is safe to read.
+					_, _ = p.reader.ReadByte()
 					star := false
 					for {
 						c, err = p.reader.ReadByte()
@@ -303,6 +308,9 @@ func (p *textPlistParser) chugWhitespace() {
 							star = false
 						}
 					}
+				default:
+					p.reader.UnreadByte() // Not the beginning of a // or /* comment
+					break ws
 				}
 				continue
 			}
