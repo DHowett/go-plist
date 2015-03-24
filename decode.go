@@ -117,11 +117,8 @@ func Unmarshal(data []byte, v interface{}) (format int, err error) {
 	return
 }
 
-// Decode works like Unmarshal, except it operates on the raw property list value.
-func (data RawPlistValue) Decode(v interface{}) (err error) {
-	dec := Decoder{}
-	pval := plistValue(data)
-
+// DecodeElement works like plist.Unmarshal except that it takes a pointer to the start element to decode into v.
+func (p *Decoder) DecodeElement(v interface{}, start *plistValue) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -131,6 +128,13 @@ func (data RawPlistValue) Decode(v interface{}) (err error) {
 		}
 	}()
 
-	dec.unmarshal(&pval, reflect.ValueOf(v))
+	p.unmarshal(start, reflect.ValueOf(v))
 	return
+}
+
+// Unmarshaler is the interface implemented by objects that can unmarshal a Plist value of themselves.
+//
+// One common implementation strategy is to unmarshal into a separate value with a layout matching the expected XML using p.DecodeElement, and then to copy the data from that value into the receiver.
+type Unmarshaler interface {
+	UnmarshalPlist(p *Decoder, start *plistValue) error
 }

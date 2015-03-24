@@ -51,24 +51,6 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 	return
 }
 
-// NewRawPlistValue works like Marshal only it write to a new raw property list value, which can then be reused later with Marshal or Encode
-func NewRawPlistValue(v interface{}) (data RawPlistValue, err error) {
-	enc := Encoder{}
-
-	defer func() {
-		if r := recover(); r != nil {
-			if _, ok := r.(runtime.Error); ok {
-				panic(r)
-			}
-			err = r.(error)
-		}
-	}()
-
-	pval := enc.marshal(reflect.ValueOf(v))
-	data = RawPlistValue(*pval)
-	return
-}
-
 // Indent turns on pretty-printing for the XML and Text property list formats.
 // Each element begins on a new line and is preceded by one or more copies of indent according to its nesting depth.
 func (p *Encoder) Indent(indent string) {
@@ -141,4 +123,26 @@ func MarshalIndent(v interface{}, format int, indent string) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// EncodeElement writes the Plist encoding of v to the stream, using start as the outermost element in the encoding.
+func (p *Encoder) EncodeElement(v interface{}, start *plistValue) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+			err = r.(error)
+		}
+	}()
+
+	*start = *p.marshal(reflect.ValueOf(v))
+	return
+}
+
+// Marshaler is the interface implemented by objects that can marshal themselves into valid Plist values.
+//
+// One common implementation strategy is to construct a separate value with a layout corresponding to the desired Plist and then to encode it using p.EncodeElement.
+type Marshaler interface {
+	MarshalPlist(p *Encoder, start *plistValue) error
 }

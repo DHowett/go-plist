@@ -26,6 +26,7 @@ func isEmptyValue(v reflect.Value) bool {
 
 var (
 	textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	selfMarshalerType = reflect.TypeOf((*Marshaler)(nil)).Elem()
 	timeType          = reflect.TypeOf((*time.Time)(nil)).Elem()
 )
 
@@ -59,6 +60,12 @@ func (p *Encoder) marshalTime(val reflect.Value) *plistValue {
 	return &plistValue{Date, time}
 }
 
+func (p *Encoder) marshalMarshalerInterface(val reflect.Value) *plistValue {
+	var pval plistValue
+	val.Interface().(Marshaler).MarshalPlist(p, &pval)
+	return &pval
+}
+
 func (p *Encoder) marshal(val reflect.Value) *plistValue {
 	if !val.IsValid() {
 		return nil
@@ -86,17 +93,13 @@ func (p *Encoder) marshal(val reflect.Value) *plistValue {
 		}
 	}
 
+	if val.CanInterface() && val.Type().Implements(selfMarshalerType) {
+		return p.marshalMarshalerInterface(val)
+	}
+
 	// Descend into pointers or interfaces
 	if val.Kind() == reflect.Ptr || (val.Kind() == reflect.Interface && val.NumMethod() == 0) {
 		val = val.Elem()
-	}
-
-	if val.Kind() == reflect.Struct && val.Type() == reflect.TypeOf(RawPlistValue{}) {
-		raw, ok := val.Interface().(RawPlistValue)
-		if ok {
-			pval := plistValue(raw)
-			return &pval
-		}
 	}
 
 	// We got this far and still may have an invalid anything or nil ptr/interface
