@@ -118,7 +118,7 @@ func Unmarshal(data []byte, v interface{}) (format int, err error) {
 }
 
 // DecodeElement works like plist.Unmarshal except that it takes a pointer to the start element to decode into v.
-func (p *Decoder) DecodeElement(v interface{}, start *plistValue) (err error) {
+func (p *Decoder) DecodeElement(v interface{}, start *RawPlistValue) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -128,7 +128,7 @@ func (p *Decoder) DecodeElement(v interface{}, start *plistValue) (err error) {
 		}
 	}()
 
-	p.unmarshal(start, reflect.ValueOf(v))
+	p.unmarshal((*plistValue)(start), reflect.ValueOf(v))
 	return
 }
 
@@ -136,5 +136,5 @@ func (p *Decoder) DecodeElement(v interface{}, start *plistValue) (err error) {
 //
 // One common implementation strategy is to unmarshal into a separate value with a layout matching the expected XML using p.DecodeElement, and then to copy the data from that value into the receiver.
 type Unmarshaler interface {
-	UnmarshalPlist(p *Decoder, start *plistValue) error
+	UnmarshalPlist(p *Decoder, start *RawPlistValue) error
 }

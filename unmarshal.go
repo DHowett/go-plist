@@ -69,6 +69,10 @@ func (p *Decoder) unmarshalLaxString(s string, val reflect.Value) {
 	}
 }
 
+func (p *Decoder) unmarshalUnmarshalerInterface(val reflect.Value, pval *plistValue) {
+	val.Interface().(Unmarshaler).UnmarshalPlist(p, (*RawPlistValue)(pval))
+}
+
 func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 	if pval == nil {
 		return
@@ -82,13 +86,13 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 	}
 
 	if val.CanInterface() && val.Type().Implements(selfUnmarshalerType) {
-		val.Interface().(Unmarshaler).UnmarshalPlist(p, pval)
+		p.unmarshalUnmarshalerInterface(val, pval)
 		return
 	}
 	if val.CanAddr() {
 		pv := val.Addr()
 		if pv.CanInterface() && pv.Type().Implements(selfUnmarshalerType) {
-			pv.Interface().(Unmarshaler).UnmarshalPlist(p, pval)
+			p.unmarshalUnmarshalerInterface(pv, pval)
 			return
 		}
 	}

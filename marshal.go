@@ -62,7 +62,7 @@ func (p *Encoder) marshalTime(val reflect.Value) *plistValue {
 
 func (p *Encoder) marshalMarshalerInterface(val reflect.Value) *plistValue {
 	var pval plistValue
-	val.Interface().(Marshaler).MarshalPlist(p, &pval)
+	val.Interface().(Marshaler).MarshalPlist(p, (*RawPlistValue)(&pval))
 	return &pval
 }
 
