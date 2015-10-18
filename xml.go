@@ -25,9 +25,15 @@ func (p *xmlPlistGenerator) generateDocument(pval *plistValue) {
 	io.WriteString(p.writer, xmlDOCTYPE)
 
 	plistStartElement := xml.StartElement{
-		xml.Name{"", "plist"},
-		[]xml.Attr{
-			{xml.Name{"", "version"}, "1.0"},
+		Name: xml.Name{
+			Space: "",
+			Local: "plist",
+		},
+		Attr: []xml.Attr{{
+			Name: xml.Name{
+				Space: "",
+				Local: "version"},
+			Value: "1.0"},
 		},
 	}
 
