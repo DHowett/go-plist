@@ -327,12 +327,13 @@ func newBplistGenerator(w io.Writer) *bplistGenerator {
 }
 
 type bplistParser struct {
-	reader   io.ReadSeeker
-	version  int
-	buf      []byte
-	objrefs  map[uint64]*plistValue
-	offtable []uint64
-	trailer  bplistTrailer
+	reader        io.ReadSeeker
+	version       int
+	buf           []byte
+	objrefs       map[uint64]*plistValue
+	offtable      []uint64
+	trailer       bplistTrailer
+	trailerOffset int64
 }
 
 func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
@@ -370,7 +371,7 @@ func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
 	}
 
 	p.objrefs = make(map[uint64]*plistValue)
-	_, err = p.reader.Seek(-32, 2)
+	p.trailerOffset, err = p.reader.Seek(-32, 2)
 	if err != nil && err != io.EOF {
 		panic(err)
 	}
@@ -380,6 +381,9 @@ func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
 		panic(err)
 	}
 
+	if p.trailer.NumObjects > uint64(math.Pow(2, 8*float64(p.trailer.ObjectRefSize))) {
+		panic(fmt.Errorf("binary property list contains more objects (%v) than its object ref size (%v bytes) can support", p.trailer.NumObjects, p.trailer.ObjectRefSize))
+	}
 	p.offtable = make([]uint64, p.trailer.NumObjects)
 
 	// SEEK_SET
@@ -450,8 +454,14 @@ func (p *bplistParser) valueAtOffset(off uint64) *plistValue {
 
 func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 	var tag uint8
-	p.reader.Seek(off, 0)
-	binary.Read(p.reader, binary.BigEndian, &tag)
+	_, err := p.reader.Seek(off, 0)
+	if err != nil {
+		panic(err)
+	}
+	err = binary.Read(p.reader, binary.BigEndian, &tag)
+	if err != nil {
+		panic(err)
+	}
 
 	switch tag & 0xF0 {
 	case bpTagNull:
@@ -489,12 +499,18 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 		return &plistValue{Date, time}
 	case bpTagData:
 		cnt := p.countForTag(tag)
+		if int64(cnt) > p.trailerOffset-int64(off) {
+			panic(fmt.Errorf("data at %x longer than file (%v bytes, max is %v)", off, cnt, p.trailerOffset-int64(off)))
+		}
 
 		bytes := make([]byte, cnt)
 		binary.Read(p.reader, binary.BigEndian, bytes)
 		return &plistValue{Data, bytes}
 	case bpTagASCIIString, bpTagUTF16String:
 		cnt := p.countForTag(tag)
+		if int64(cnt) > p.trailerOffset-int64(off) {
+			panic(fmt.Errorf("string at %x longer than file (%v bytes, max is %v)", off, cnt, p.trailerOffset-int64(off)))
+		}
 
 		if tag&0xF0 == bpTagASCIIString {
 			bytes := make([]byte, cnt)
@@ -519,8 +535,16 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 			indices[i] = idx
 		}
 		for i := uint64(0); i < cnt; i++ {
-			kval := p.valueAtOffset(p.offtable[indices[i]])
-			subvalues[kval.value.(string)] = p.valueAtOffset(p.offtable[indices[i+cnt]])
+			keyOffset := p.offtable[indices[i]]
+			valueOffset := p.offtable[indices[i+cnt]]
+			if keyOffset == uint64(off) {
+				panic(fmt.Errorf("dictionary contains self-referential key %x (index %d)", off, i))
+			}
+			if valueOffset == uint64(off) {
+				panic(fmt.Errorf("dictionary contains self-referential value %x (index %d)", off, i))
+			}
+			kval := p.valueAtOffset(keyOffset)
+			subvalues[kval.value.(string)] = p.valueAtOffset(valueOffset)
 		}
 
 		return &plistValue{Dictionary, &dictionary{m: subvalues}}
@@ -533,7 +557,11 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 			indices[i] = p.readSizedInt(int(p.trailer.ObjectRefSize))
 		}
 		for i := uint64(0); i < cnt; i++ {
-			arr[i] = p.valueAtOffset(p.offtable[indices[i]])
+			valueOffset := p.offtable[indices[i]]
+			if valueOffset == uint64(off) {
+				panic(fmt.Errorf("array contains self-referential value %x (index %d)", off, i))
+			}
+			arr[i] = p.valueAtOffset(valueOffset)
 		}
 
 		return &plistValue{Array, arr}
