@@ -1,10 +1,10 @@
-# GoP
+# Ply
 Property list pretty-printer powered by `howett.net/plist`.
 
 ## Usage
 
 ```
-  gop [OPTIONS]
+  ply [OPTIONS]
 
 Application Options:
   -c, --convert=<format>    convert the property list to a new format (c=list for list) (pretty)
@@ -21,7 +21,7 @@ Help Options:
 ### Keypath evaluation
 
 ```
-$ gop file.plist
+$ ply file.plist
 {
   x: {
        y: {
@@ -29,7 +29,7 @@ $ gop file.plist
           }
      }
 }
-$ gop -k x/y/z file.plist
+$ ply -k x/y/z file.plist
 1024
 ```
 
@@ -60,7 +60,7 @@ Given the following property list:
 ```
 
 ```
-$ gop file.plist
+$ ply file.plist
 {
   a: {
        b: {
@@ -81,44 +81,44 @@ $ gop file.plist
 ```
 
 ```
-$ gop file.plist -k 'a/b/d'
+$ ply file.plist -k 'a/b/d'
 hello
 ```
 
 ```
-$ gop file.plist -k 'a/b/c[1]'
+$ ply file.plist -k 'a/b/c[1]'
 2
 ```
 
 ```
-$ gop file.plist -k 'a/data'
+$ ply file.plist -k 'a/data'
 00000000  41 42 43                                          |ABC.............|
 ```
 
 ```
-$ gop file.plist -k 'a/data[2:3]'
+$ ply file.plist -k 'a/data[2:3]'
 00000000  43                                                |C...............|
 ```
 
 ```
-$ gop -k 'sub[0:10]' file.plist
+$ ply -k 'sub[0:10]' file.plist
 00000000  7b 0a 09 74 68 69 73 3d  22 61                    |{..this="a......|
 ```
 
 ```
-$ gop -k 'sub!' file.plist
+$ ply -k 'sub!' file.plist
 {
   this: a dictionary inside another plist!
 }
 ```
 
 ```
-$ gop -k 'sub!/this' file.plist
+$ ply -k 'sub!/this' file.plist
 a dictionary inside another plist!
 ```
 
 ```
-$ gop -k '/$(/a/b/d)' file.plist
+$ ply -k '/$(/a/b/d)' file.plist
 subexpression
 ```
 
