@@ -1,6 +1,8 @@
 # Ply
 Property list pretty-printer powered by `howett.net/plist`.
 
+_verb. work with (a tool, especially one requiring steady, rhythmic movements)._
+
 ## Usage
 
 ```
@@ -35,11 +37,11 @@ $ ply -k x/y/z file.plist
 
 Keypaths are composed of a number of path expressions:
 
-* `name/` - dictionary key
-* `name[n]` - array index
-* `name[n:m]` - array or data slice
+* `/name` - dictionary key access
+* `[i]` - index array, string, or data
+* `[i:j]` - silce array, string, or data in the range `[i, j)`
+* `!` - parse the data value as a property list and use it as the base of evaluation for further path components
 * `$(subexpression)` - evaluate `subexpression` and paste its value
-* `name!` - parse the data value at `name` as a property list and use it to evaluate further keypath
 
 #### Examples
 
@@ -59,6 +61,7 @@ Given the following property list:
 }
 ```
 
+##### pretty print
 ```
 $ ply file.plist
 {
@@ -80,21 +83,25 @@ $ ply file.plist
 }
 ```
 
+##### consecutive dictionary keys
 ```
 $ ply file.plist -k 'a/b/d'
 hello
 ```
 
+##### array indexing
 ```
 $ ply file.plist -k 'a/b/c[1]'
 2
 ```
 
+##### data hexdump
 ```
 $ ply file.plist -k 'a/data'
 00000000  41 42 43                                          |ABC.............|
 ```
 
+##### data and array slicing
 ```
 $ ply file.plist -k 'a/data[2:3]'
 00000000  43                                                |C...............|
@@ -105,6 +112,7 @@ $ ply -k 'sub[0:10]' file.plist
 00000000  7b 0a 09 74 68 69 73 3d  22 61                    |{..this="a......|
 ```
 
+##### subplist parsing
 ```
 $ ply -k 'sub!' file.plist
 {
@@ -112,11 +120,13 @@ $ ply -k 'sub!' file.plist
 }
 ```
 
+##### subplist keypath evaluation
 ```
 $ ply -k 'sub!/this' file.plist
 a dictionary inside another plist!
 ```
 
+##### subexpression evaluation
 ```
 $ ply -k '/$(/a/b/d)' file.plist
 subexpression
@@ -124,9 +134,43 @@ subexpression
 
 ### Property list conversion
 
-* XML
-* bplist
-* GNUstep
-* OpenStep
-* JSON (for a subset of data types)
-* YAML
+`-c <format>`, or `-c list` to list them all.
+
+* Binary property list [`bplist`]
+* XML [`xml`]
+* GNUstep [`gnustep`, `gs`]
+* OpenStep [`openstep`, `os`]
+* JSON (for a subset of data types) [`json`]
+* YAML [`yaml`]
+
+#### Notes
+By default, ply will emit the most compact representation it can for a given format. The `-I` flag influences the inclusion of whitespace.
+
+Ply will overwrite the input file unless an output filename is specified with `-o <file>`.
+
+### Property list subsetting
+
+(and subset conversion)
+
+```
+$ ply -k '/a/b' -o file-a-b.plist -c openstep -I file.plist
+$ cat file-a-b.plist
+{
+	c = (
+		1,
+		2,
+		3,
+	);
+	d = hello;
+}
+```
+
+#### Subplist extraction
+
+```
+$ ply -k '/sub!' -o file-sub.plist -c openstep -I file.plist
+$ cat file-sub.plist
+{
+	this = "a dictionary inside another plist!";
+}
+```
