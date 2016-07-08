@@ -477,7 +477,7 @@ func (p *textPlistParser) parseArray() *plistValue {
 }
 
 func (p *textPlistParser) parseGNUStepValue(v []byte) *plistValue {
-	if len(v) < 2 {
+	if len(v) < 3 {
 		panic(errors.New("invalid GNUStep extended value"))
 	}
 	typ := v[1]
@@ -524,6 +524,10 @@ func (p *textPlistParser) parsePlistValue() *plistValue {
 				panic(err)
 			}
 			bytes = bytes[:len(bytes)-1]
+
+			if len(bytes) == 0 {
+				panic(errors.New("invalid empty angle-bracketed element"))
+			}
 
 			if bytes[0] == '*' {
 				p.format = GNUStepFormat
