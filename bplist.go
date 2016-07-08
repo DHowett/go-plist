@@ -557,7 +557,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 			}
 
 			kval := p.valueAtOffset(keyOffset)
-			if !kval || kval.kind != String {
+			if kval == nil || kval.kind != String {
 				panic(fmt.Errorf("dictionary contains non-string key at index %d", i))
 			}
 
