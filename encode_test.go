@@ -39,6 +39,10 @@ func TestEncode(t *testing.T) {
 
 		results := make(map[int][]byte)
 		for fmt, dat := range test.Expected {
+			if test.SkipEncode[fmt] {
+				continue
+			}
+
 			results[fmt], errors[fmt] = Marshal(test.Data, fmt)
 			failed = failed || (test.ShouldFail && errors[fmt] == nil)
 			failed = failed || !bytes.Equal(dat, results[fmt])
