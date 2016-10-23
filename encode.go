@@ -124,3 +124,25 @@ func MarshalIndent(v interface{}, format int, indent string) ([]byte, error) {
 	}
 	return buf.Bytes(), nil
 }
+
+// EncodeElement writes the Plist encoding of v to the stream, using start as the outermost element in the encoding.
+func (p *Encoder) EncodeElement(v interface{}, start *RawPlistValue) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+			err = r.(error)
+		}
+	}()
+
+	*start = RawPlistValue(*p.marshal(reflect.ValueOf(v)))
+	return
+}
+
+// Marshaler is the interface implemented by objects that can marshal themselves into valid Plist values.
+//
+// One common implementation strategy is to construct a separate value with a layout corresponding to the desired Plist and then to encode it using p.EncodeElement.
+type Marshaler interface {
+	MarshalPlist(p *Encoder, start *RawPlistValue) error
+}

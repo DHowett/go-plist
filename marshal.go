@@ -26,6 +26,7 @@ func isEmptyValue(v reflect.Value) bool {
 
 var (
 	textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	selfMarshalerType = reflect.TypeOf((*Marshaler)(nil)).Elem()
 	timeType          = reflect.TypeOf((*time.Time)(nil)).Elem()
 )
 
@@ -59,6 +60,12 @@ func (p *Encoder) marshalTime(val reflect.Value) *plistValue {
 	return &plistValue{Date, time}
 }
 
+func (p *Encoder) marshalMarshalerInterface(val reflect.Value) *plistValue {
+	var pval plistValue
+	val.Interface().(Marshaler).MarshalPlist(p, (*RawPlistValue)(&pval))
+	return &pval
+}
+
 func (p *Encoder) marshal(val reflect.Value) *plistValue {
 	if !val.IsValid() {
 		return nil
@@ -84,6 +91,10 @@ func (p *Encoder) marshal(val reflect.Value) *plistValue {
 		if pv.CanInterface() && pv.Type().Implements(textMarshalerType) {
 			return p.marshalTextInterface(pv.Interface().(encoding.TextMarshaler))
 		}
+	}
+
+	if val.CanInterface() && val.Type().Implements(selfMarshalerType) {
+		return p.marshalMarshalerInterface(val)
 	}
 
 	// Descend into pointers or interfaces

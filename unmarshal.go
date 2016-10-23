@@ -18,6 +18,7 @@ func (u *incompatibleDecodeTypeError) Error() string {
 
 var (
 	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	selfUnmarshalerType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 )
 
 func isEmptyInterface(v reflect.Value) bool {
@@ -68,6 +69,10 @@ func (p *Decoder) unmarshalLaxString(s string, val reflect.Value) {
 	}
 }
 
+func (p *Decoder) unmarshalUnmarshalerInterface(val reflect.Value, pval *plistValue) {
+	val.Interface().(Unmarshaler).UnmarshalPlist(p, (*RawPlistValue)(pval))
+}
+
 func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 	if pval == nil {
 		return
@@ -78,6 +83,18 @@ func (p *Decoder) unmarshal(pval *plistValue, val reflect.Value) {
 			val.Set(reflect.New(val.Type().Elem()))
 		}
 		val = val.Elem()
+	}
+
+	if val.CanInterface() && val.Type().Implements(selfUnmarshalerType) {
+		p.unmarshalUnmarshalerInterface(val, pval)
+		return
+	}
+	if val.CanAddr() {
+		pv := val.Addr()
+		if pv.CanInterface() && pv.Type().Implements(selfUnmarshalerType) {
+			p.unmarshalUnmarshalerInterface(pv, pval)
+			return
+		}
 	}
 
 	if isEmptyInterface(val) {
