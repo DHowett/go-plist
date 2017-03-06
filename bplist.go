@@ -334,6 +334,8 @@ type bplistParser struct {
 	offtable      []uint64
 	trailer       bplistTrailer
 	trailerOffset int64
+
+	delayedObjects map[**plistValue]uint64
 }
 
 func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
@@ -404,8 +406,14 @@ func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
 		p.offtable[i] = off
 	}
 
+	p.delayedObjects = make(map[**plistValue]uint64)
+
 	for _, off := range p.offtable {
 		p.valueAtOffset(off)
+	}
+
+	for pvalp, off := range p.delayedObjects {
+		*pvalp = p.valueAtOffset(off)
 	}
 
 	pval = p.valueAtOffset(p.offtable[p.trailer.TopObject])
@@ -565,6 +573,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 			if !ok {
 				panic(fmt.Errorf("string-type plist value contains non-string at index %d", i))
 			}
+			//p.delayedObjects[&subvalues[key]] = valueOffset
 			subvalues[key] = p.valueAtOffset(valueOffset)
 		}
 
@@ -588,7 +597,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 			if valueOffset == uint64(off) {
 				panic(fmt.Errorf("array contains self-referential value %x (index %d)", off, i))
 			}
-			arr[i] = p.valueAtOffset(valueOffset)
+			p.delayedObjects[&arr[i]] = valueOffset
 		}
 
 		return &plistValue{Array, arr}
