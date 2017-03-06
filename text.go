@@ -276,6 +276,9 @@ ws:
 				if err != nil && err != io.EOF {
 					panic(err)
 				}
+				if err == io.EOF {
+					return
+				}
 				c = cs[0]
 				switch c {
 				case '/':
@@ -395,6 +398,11 @@ func (p *textPlistParser) parseUnquotedString() *plistValue {
 		}
 		s += string(c)
 	}
+
+	if s == "" {
+		panic(errors.New("invalid unquoted string (found an unquoted character that should be quoted?)"))
+	}
+
 	return &plistValue{String, s}
 }
 
@@ -547,6 +555,9 @@ func (p *textPlistParser) parsePlistValue() *plistValue {
 		case '(':
 			return p.parseArray()
 		default:
+			if gsQuotable[c/64]&(1<<(c%64)) > 0 {
+				panic(errors.New("unexpected non-quotable character at root level"))
+			}
 			p.reader.UnreadByte() // Place back in buffer for parseUnquotedString
 			return p.parseUnquotedString()
 		}
