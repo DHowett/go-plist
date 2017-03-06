@@ -201,13 +201,13 @@ func TestFormatDetection(t *testing.T) {
 		{OpenStepFormat, []byte{0x00}},
 	}
 
-	for _, fmttest := range plists {
+	for i, fmttest := range plists {
 		fmt, err := Unmarshal(fmttest.data, nil)
 		if fmt != fmttest.expectedFormat {
-			t.Errorf("Wanted %s, received %s.", FormatNames[fmttest.expectedFormat], FormatNames[fmt])
+			t.Errorf("plist %d: Wanted %s, received %s.", i, FormatNames[fmttest.expectedFormat], FormatNames[fmt])
 		}
 		if err != nil {
-			t.Logf("Error: %v", err)
+			t.Logf("plist %d: Error: %v", i, err)
 		}
 	}
 }
