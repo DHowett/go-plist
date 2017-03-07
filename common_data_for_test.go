@@ -564,7 +564,7 @@ var plistValueTreeRawData *EverythingTestData = &EverythingTestData{
 	Dat:      []byte{1, 2, 3, 4},
 	Date:     time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC),
 }
-var plistValueTree *plistValue
+var plistValueTree cfValue
 var plistValueTreeAsBplist []byte = []byte{98, 112, 108, 105, 115, 116, 48, 48, 214, 1, 13, 17, 21, 25, 27, 2, 14, 18, 22, 26, 28, 88, 105, 110, 116, 97, 114, 114, 97, 121, 170, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 1, 16, 8, 16, 16, 16, 32, 16, 64, 16, 2, 16, 9, 16, 17, 16, 33, 16, 65, 86, 102, 108, 111, 97, 116, 115, 162, 15, 16, 34, 66, 0, 0, 0, 35, 64, 80, 0, 0, 0, 0, 0, 0, 88, 98, 111, 111, 108, 101, 97, 110, 115, 162, 19, 20, 9, 8, 87, 115, 116, 114, 105, 110, 103, 115, 162, 23, 24, 92, 72, 101, 108, 108, 111, 44, 32, 65, 83, 67, 73, 73, 105, 0, 72, 0, 101, 0, 108, 0, 108, 0, 111, 0, 44, 0, 32, 78, 22, 117, 76, 84, 100, 97, 116, 97, 68, 1, 2, 3, 4, 84, 100, 97, 116, 101, 51, 65, 184, 69, 117, 120, 0, 0, 0, 8, 21, 30, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 68, 71, 76, 85, 94, 97, 98, 99, 107, 110, 123, 142, 147, 152, 157, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 166}
 var plistValueTreeAsXML string = xmlPreamble + `<plist version="1.0"><dict><key>intarray</key><array><integer>1</integer><integer>8</integer><integer>16</integer><integer>32</integer><integer>64</integer><integer>2</integer><integer>9</integer><integer>17</integer><integer>33</integer><integer>65</integer></array><key>floats</key><array><real>32</real><real>64</real></array><key>booleans</key><array><true></true><false></false></array><key>strings</key><array><string>Hello, ASCII</string><string>Hello, 世界</string></array><key>data</key><data>AQIDBA==</data><key>date</key><date>2013-11-27T00:34:00Z</date></dict></plist>`
 var plistValueTreeAsOpenStep string = `{booleans=(1,0,);data=<01020304>;date="2013-11-27 00:34:00 +0000";floats=(32,64,);intarray=(1,8,16,32,64,2,9,17,33,65,);strings=("Hello, ASCII","Hello, \U4e16\U754c",);}`
@@ -581,36 +581,51 @@ type LaxTestData struct {
 var laxTestData = LaxTestData{1, 2, 3.0, true, time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC)}
 
 func setupPlistValues() {
-	plistValueTree = &plistValue{
-		Dictionary,
-		&dictionary{m: map[string]*plistValue{
-			"intarray": &plistValue{Array, []*plistValue{
-				&plistValue{Integer, signedInt{uint64(1), false}},
-				&plistValue{Integer, signedInt{uint64(8), false}},
-				&plistValue{Integer, signedInt{uint64(16), false}},
-				&plistValue{Integer, signedInt{uint64(32), false}},
-				&plistValue{Integer, signedInt{uint64(64), false}},
-				&plistValue{Integer, signedInt{uint64(2), false}},
-				&plistValue{Integer, signedInt{uint64(8), false}},
-				&plistValue{Integer, signedInt{uint64(17), false}},
-				&plistValue{Integer, signedInt{uint64(33), false}},
-				&plistValue{Integer, signedInt{uint64(65), false}},
-			}},
-			"floats": &plistValue{Array, []*plistValue{
-				&plistValue{Real, sizedFloat{float64(32.0), 32}},
-				&plistValue{Real, sizedFloat{float64(64.0), 64}},
-			}},
-			"booleans": &plistValue{Array, []*plistValue{
-				&plistValue{Boolean, true},
-				&plistValue{Boolean, false},
-			}},
-			"strings": &plistValue{Array, []*plistValue{
-				&plistValue{String, "Hello, ASCII"},
-				&plistValue{String, "Hello, 世界"},
-			}},
-			"data": &plistValue{Data, []byte{1, 2, 3, 4}},
-			"date": &plistValue{Date, time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC)},
-		}},
+	plistValueTree = &cfDictionary{
+		keys: []string{
+			"intarray",
+			"floats",
+			"booleans",
+			"strings",
+			"data",
+			"date",
+		},
+		values: []cfValue{
+			&cfArray{
+				values: []cfValue{
+					&cfNumber{value: 1},
+					&cfNumber{value: 8},
+					&cfNumber{value: 16},
+					&cfNumber{value: 32},
+					&cfNumber{value: 64},
+					&cfNumber{value: 2},
+					&cfNumber{value: 8},
+					&cfNumber{value: 17},
+					&cfNumber{value: 33},
+					&cfNumber{value: 65},
+				},
+			},
+			&cfArray{
+				values: []cfValue{
+					&cfReal{wide: false, value: 32.0},
+					&cfReal{wide: true, value: 64.0},
+				},
+			},
+			&cfArray{
+				values: []cfValue{
+					cfBoolean(true),
+					cfBoolean(false),
+				},
+			},
+			&cfArray{
+				values: []cfValue{
+					cfString("Hello, ASCII"),
+					cfString("Hello, 世界"),
+				},
+			},
+			cfData{1, 2, 3, 4},
+			cfDate(time.Date(2013, 11, 27, 0, 32, 0, 0, time.UTC)),
+		},
 	}
 }
 

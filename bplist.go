@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"math"
 	"runtime"
@@ -40,82 +39,55 @@ const (
 
 type bplistGenerator struct {
 	writer   *countedWriter
-	uniqmap  map[interface{}]uint64
-	objmap   map[*plistValue]uint64
-	objtable []*plistValue
-	nobjects uint64
+	objmap   map[interface{}]uint64 // maps pValue.hash()es to object locations
+	objtable []cfValue
 	trailer  bplistTrailer
 }
 
-func (p *bplistGenerator) flattenPlistValue(pval *plistValue) {
-	switch pval.kind {
-	case String, Integer, Real:
-		if _, ok := p.uniqmap[pval.value]; ok {
+func isUniquedBplistValue(pval cfValue) bool {
+	switch pval.(type) {
+	case cfString, *cfNumber, *cfReal, cfDate, cfData:
+		return true
+	}
+	return false
+}
+
+func (p *bplistGenerator) flattenPlistValue(pval cfValue) {
+	key := pval.hash()
+	if isUniquedBplistValue(pval) {
+		if _, ok := p.objmap[key]; ok {
 			return
 		}
-		p.uniqmap[pval.value] = p.nobjects
-	case Date:
-		k := pval.value.(time.Time).UnixNano()
-		if _, ok := p.uniqmap[k]; ok {
-			return
-		}
-		p.uniqmap[k] = p.nobjects
-	case Data:
-		// Data are uniqued by their checksums.
-		// The wonderful difference between uint64 (which we use for numbers)
-		// and uint32 makes this possible.
-		// Todo: Look at calculating this only once and storing it somewhere;
-		// crc32 is fairly quick, however.
-		uniqkey := crc32.ChecksumIEEE(pval.value.([]byte))
-		if _, ok := p.uniqmap[uniqkey]; ok {
-			return
-		}
-		p.uniqmap[uniqkey] = p.nobjects
 	}
 
+	p.objmap[key] = uint64(len(p.objtable))
 	p.objtable = append(p.objtable, pval)
-	p.objmap[pval] = p.nobjects
-	p.nobjects++
 
-	switch pval.kind {
-	case Dictionary:
-		dict := pval.value.(*dictionary)
-		dict.populateArrays()
-		for _, k := range dict.keys {
-			p.flattenPlistValue(&plistValue{String, k})
+	switch pval := pval.(type) {
+	case *cfDictionary:
+		pval.sort()
+		for _, k := range pval.keys {
+			p.flattenPlistValue(cfString(k))
 		}
-		for _, v := range dict.values {
+		for _, v := range pval.values {
 			p.flattenPlistValue(v)
 		}
-	case Array:
-		subvalues := pval.value.([]*plistValue)
-		for _, v := range subvalues {
+	case *cfArray:
+		for _, v := range pval.values {
 			p.flattenPlistValue(v)
 		}
 	}
 }
 
-func (p *bplistGenerator) indexForPlistValue(pval *plistValue) (uint64, bool) {
-	var v uint64
-	var ok bool
-	switch pval.kind {
-	case String, Integer, Real:
-		v, ok = p.uniqmap[pval.value]
-	case Date:
-		v, ok = p.uniqmap[pval.value.(time.Time).UnixNano()]
-	case Data:
-		v, ok = p.uniqmap[crc32.ChecksumIEEE(pval.value.([]byte))]
-	default:
-		v, ok = p.objmap[pval]
-	}
+func (p *bplistGenerator) indexForPlistValue(pval cfValue) (uint64, bool) {
+	v, ok := p.objmap[pval.hash()]
 	return v, ok
 }
 
-func (p *bplistGenerator) generateDocument(rootpval *plistValue) {
-	p.objtable = make([]*plistValue, 0, 15)
-	p.uniqmap = make(map[interface{}]uint64)
-	p.objmap = make(map[*plistValue]uint64)
-	p.flattenPlistValue(rootpval)
+func (p *bplistGenerator) generateDocument(root cfValue) {
+	p.objtable = make([]cfValue, 0, 16)
+	p.objmap = make(map[interface{}]uint64)
+	p.flattenPlistValue(root)
 
 	p.trailer.NumObjects = uint64(len(p.objtable))
 	p.trailer.ObjectRefSize = uint8(minimumSizeForInt(p.trailer.NumObjects))
@@ -129,7 +101,7 @@ func (p *bplistGenerator) generateDocument(rootpval *plistValue) {
 	}
 
 	p.trailer.OffsetIntSize = uint8(minimumSizeForInt(uint64(p.writer.BytesWritten())))
-	p.trailer.TopObject = p.objmap[rootpval]
+	p.trailer.TopObject = p.objmap[root.hash()]
 	p.trailer.OffsetTableOffset = uint64(p.writer.BytesWritten())
 
 	for _, offset := range offtable {
@@ -139,28 +111,32 @@ func (p *bplistGenerator) generateDocument(rootpval *plistValue) {
 	binary.Write(p.writer, binary.BigEndian, p.trailer)
 }
 
-func (p *bplistGenerator) writePlistValue(pval *plistValue) {
+func (p *bplistGenerator) writePlistValue(pval cfValue) {
 	if pval == nil {
 		return
 	}
 
-	switch pval.kind {
-	case Dictionary:
-		p.writeDictionaryTag(pval.value.(*dictionary))
-	case Array:
-		p.writeArrayTag(pval.value.([]*plistValue))
-	case String:
-		p.writeStringTag(pval.value.(string))
-	case Integer:
-		p.writeIntTag(pval.value.(signedInt).value)
-	case Real:
-		p.writeRealTag(pval.value.(sizedFloat).value, pval.value.(sizedFloat).bits)
-	case Boolean:
-		p.writeBoolTag(pval.value.(bool))
-	case Data:
-		p.writeDataTag(pval.value.([]byte))
-	case Date:
-		p.writeDateTag(pval.value.(time.Time))
+	switch pval := pval.(type) {
+	case *cfDictionary:
+		p.writeDictionaryTag(pval)
+	case *cfArray:
+		p.writeArrayTag([]cfValue(pval.values))
+	case cfString:
+		p.writeStringTag(string(pval))
+	case *cfNumber:
+		p.writeIntTag(uint64(pval.value))
+	case *cfReal:
+		if pval.wide {
+			p.writeRealTag(pval.value, 64)
+		} else {
+			p.writeRealTag(pval.value, 32)
+		}
+	case cfBoolean:
+		p.writeBoolTag(bool(pval))
+	case cfData:
+		p.writeDataTag([]byte(pval))
+	case cfDate:
+		p.writeDateTag(time.Time(pval))
 	}
 }
 
@@ -280,18 +256,22 @@ func (p *bplistGenerator) writeStringTag(str string) {
 	binary.Write(p.writer, binary.BigEndian, []byte(str))
 }
 
-func (p *bplistGenerator) writeDictionaryTag(dict *dictionary) {
-	p.writeCountedTag(bpTagDictionary, uint64(dict.count))
-	vals := make([]uint64, dict.count*2)
-	cnt := dict.count
+func (p *bplistGenerator) writeDictionaryTag(dict *cfDictionary) {
+	// assumption: sorted already; flattenPlistValue did this.
+	cnt := len(dict.keys)
+	p.writeCountedTag(bpTagDictionary, uint64(cnt))
+	vals := make([]uint64, cnt*2)
 	for i, k := range dict.keys {
-		keyIdx, ok := p.uniqmap[k]
+		// invariant: keys have already been "uniqued" (as PStrings)
+		keyIdx, ok := p.objmap[cfString(k).hash()]
 		if !ok {
 			panic(errors.New("failed to find key " + k + " in object map during serialization"))
 		}
 		vals[i] = keyIdx
 	}
+
 	for i, v := range dict.values {
+		// invariant: values have already been "uniqued"
 		objIdx, ok := p.indexForPlistValue(v)
 		if !ok {
 			panic(errors.New("failed to find value in object map during serialization"))
@@ -304,7 +284,7 @@ func (p *bplistGenerator) writeDictionaryTag(dict *dictionary) {
 	}
 }
 
-func (p *bplistGenerator) writeArrayTag(arr []*plistValue) {
+func (p *bplistGenerator) writeArrayTag(arr []cfValue) {
 	p.writeCountedTag(bpTagArray, uint64(len(arr)))
 	for _, v := range arr {
 		objIdx, ok := p.indexForPlistValue(v)
@@ -330,15 +310,15 @@ type bplistParser struct {
 	reader        io.ReadSeeker
 	version       int
 	buf           []byte
-	objrefs       map[uint64]*plistValue
+	objrefs       map[uint64]cfValue
 	offtable      []uint64
 	trailer       bplistTrailer
 	trailerOffset int64
 
-	delayedObjects map[**plistValue]uint64
+	delayedObjects map[*cfValue]uint64
 }
 
-func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
+func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -372,7 +352,7 @@ func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
 		panic(fmt.Errorf("unexpected version %d", p.version))
 	}
 
-	p.objrefs = make(map[uint64]*plistValue)
+	p.objrefs = make(map[uint64]cfValue)
 	p.trailerOffset, err = p.reader.Seek(-32, 2)
 	if err != nil && err != io.EOF {
 		panic(err)
@@ -399,14 +379,14 @@ func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
 	}
 
 	for i := uint64(0); i < p.trailer.NumObjects; i++ {
-		off := p.readSizedInt(int(p.trailer.OffsetIntSize))
+		off, _ := p.readSizedInt(int(p.trailer.OffsetIntSize))
 		if off >= uint64(p.trailerOffset) {
 			panic(fmt.Errorf("object %v starts beyond end of plist trailer (%v vs %v)", i, off, p.trailerOffset))
 		}
 		p.offtable[i] = off
 	}
 
-	p.delayedObjects = make(map[**plistValue]uint64)
+	p.delayedObjects = make(map[*cfValue]uint64)
 
 	for _, off := range p.offtable {
 		p.valueAtOffset(off)
@@ -420,30 +400,31 @@ func (p *bplistParser) parseDocument() (pval *plistValue, parseError error) {
 	return
 }
 
-func (p *bplistParser) readSizedInt(nbytes int) uint64 {
+// readSizedInt returns a 128-bit integer as low64, high64
+func (p *bplistParser) readSizedInt(nbytes int) (uint64, uint64) {
 	switch nbytes {
 	case 1:
 		var val uint8
 		binary.Read(p.reader, binary.BigEndian, &val)
-		return uint64(val)
+		return uint64(val), 0
 	case 2:
 		var val uint16
 		binary.Read(p.reader, binary.BigEndian, &val)
-		return uint64(val)
+		return uint64(val), 0
 	case 4:
 		var val uint32
 		binary.Read(p.reader, binary.BigEndian, &val)
-		return uint64(val)
+		return uint64(val), 0
 	case 8:
 		var val uint64
 		binary.Read(p.reader, binary.BigEndian, &val)
-		return uint64(val)
+		return uint64(val), 0
 	case 16:
 		var high, low uint64
 		binary.Read(p.reader, binary.BigEndian, &high)
 		binary.Read(p.reader, binary.BigEndian, &low)
 		// TODO: int128 support (!)
-		return uint64(low)
+		return low, high
 	}
 	panic(errors.New("illegal integer size"))
 }
@@ -453,12 +434,12 @@ func (p *bplistParser) countForTag(tag uint8) uint64 {
 	if cnt == 0xF {
 		var intTag uint8
 		binary.Read(p.reader, binary.BigEndian, &intTag)
-		cnt = p.readSizedInt(1 << (intTag & 0xF))
+		cnt, _ = p.readSizedInt(1 << (intTag & 0xF))
 	}
 	return cnt
 }
 
-func (p *bplistParser) valueAtOffset(off uint64) *plistValue {
+func (p *bplistParser) valueAtOffset(off uint64) cfValue {
 	if pval, ok := p.objrefs[off]; ok {
 		return pval
 	}
@@ -467,7 +448,7 @@ func (p *bplistParser) valueAtOffset(off uint64) *plistValue {
 	return pval
 }
 
-func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
+func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 	var tag uint8
 	_, err := p.reader.Seek(off, 0)
 	if err != nil {
@@ -482,23 +463,26 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 	case bpTagNull:
 		switch tag & 0x0F {
 		case bpTagBoolTrue, bpTagBoolFalse:
-			return &plistValue{Boolean, tag == bpTagBoolTrue}
+			return cfBoolean(tag == bpTagBoolTrue)
 		}
-		return nil
+		return cfNull{}
 	case bpTagInteger:
-		val := p.readSizedInt(1 << (tag & 0xF))
-		return &plistValue{Integer, signedInt{val, false}}
+		lo, hi := p.readSizedInt(1 << (tag & 0xF))
+		return &cfNumber{
+			signed: hi == 0xFFFFFFFFFFFFFFFF, // a signed integer is stored as a 128-bit integer with the top 64 bits set
+			value:  lo,
+		}
 	case bpTagReal:
 		nbytes := 1 << (tag & 0x0F)
 		switch nbytes {
 		case 4:
 			var val float32
 			binary.Read(p.reader, binary.BigEndian, &val)
-			return &plistValue{Real, sizedFloat{float64(val), 32}}
+			return &cfReal{wide: false, value: float64(val)}
 		case 8:
 			var val float64
 			binary.Read(p.reader, binary.BigEndian, &val)
-			return &plistValue{Real, sizedFloat{float64(val), 64}}
+			return &cfReal{wide: true, value: val}
 		}
 		panic(errors.New("illegal float size"))
 	case bpTagDate:
@@ -511,7 +495,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 
 		sec, fsec := math.Modf(val)
 		time := time.Unix(int64(sec), int64(fsec*float64(time.Second))).In(time.UTC)
-		return &plistValue{Date, time}
+		return cfDate(time)
 	case bpTagData:
 		cnt := p.countForTag(tag)
 		if int64(cnt) > p.trailerOffset-int64(off) {
@@ -520,7 +504,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 
 		bytes := make([]byte, cnt)
 		binary.Read(p.reader, binary.BigEndian, bytes)
-		return &plistValue{Data, bytes}
+		return cfData(bytes)
 	case bpTagASCIIString, bpTagUTF16String:
 		cnt := p.countForTag(tag)
 		if int64(cnt) > p.trailerOffset-int64(off) {
@@ -530,23 +514,24 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 		if tag&0xF0 == bpTagASCIIString {
 			bytes := make([]byte, cnt)
 			binary.Read(p.reader, binary.BigEndian, bytes)
-			return &plistValue{String, string(bytes)}
-		} else {
-			bytes := make([]uint16, cnt)
-			binary.Read(p.reader, binary.BigEndian, bytes)
-			runes := utf16.Decode(bytes)
-			return &plistValue{String, string(runes)}
+			return cfString(bytes)
 		}
+
+		bytes := make([]uint16, cnt)
+		binary.Read(p.reader, binary.BigEndian, bytes)
+		runes := utf16.Decode(bytes)
+		return cfString(runes)
 	case bpTagUID: // Somehow different than int: low half is nbytes - 1 instead of log2(nbytes)
-		val := p.readSizedInt(int(tag&0xF) + 1)
-		return &plistValue{Integer, signedInt{val, false}}
+		val, _ := p.readSizedInt(int(tag&0xF) + 1)
+		return &cfNumber{signed: false, value: val}
 	case bpTagDictionary:
 		cnt := p.countForTag(tag)
 
-		subvalues := make(map[string]*plistValue)
+		keys := make([]string, cnt)
+		values := make([]cfValue, cnt)
 		indices := make([]uint64, cnt*2)
 		for i := uint64(0); i < cnt*2; i++ {
-			idx := p.readSizedInt(int(p.trailer.ObjectRefSize))
+			idx, _ := p.readSizedInt(int(p.trailer.ObjectRefSize))
 
 			if idx >= p.trailer.NumObjects {
 				panic(fmt.Errorf("dictionary contains invalid entry index %d (max %d)", idx, p.trailer.NumObjects))
@@ -554,6 +539,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 
 			indices[i] = idx
 		}
+
 		for i := uint64(0); i < cnt; i++ {
 			keyOffset := p.offtable[indices[i]]
 			valueOffset := p.offtable[indices[i+cnt]]
@@ -565,26 +551,22 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 			}
 
 			kval := p.valueAtOffset(keyOffset)
-			if kval == nil || kval.kind != String {
+			if str, ok := kval.(cfString); ok {
+				keys[i] = string(str)
+				p.delayedObjects[&values[i]] = valueOffset
+			} else {
 				panic(fmt.Errorf("dictionary contains non-string key at index %d", i))
 			}
-
-			key, ok := kval.value.(string)
-			if !ok {
-				panic(fmt.Errorf("string-type plist value contains non-string at index %d", i))
-			}
-			//p.delayedObjects[&subvalues[key]] = valueOffset
-			subvalues[key] = p.valueAtOffset(valueOffset)
 		}
 
-		return &plistValue{Dictionary, &dictionary{m: subvalues}}
+		return &cfDictionary{keys: keys, values: values}
 	case bpTagArray:
 		cnt := p.countForTag(tag)
 
-		arr := make([]*plistValue, cnt)
+		arr := make([]cfValue, cnt)
 		indices := make([]uint64, cnt)
 		for i := uint64(0); i < cnt; i++ {
-			idx := p.readSizedInt(int(p.trailer.ObjectRefSize))
+			idx, _ := p.readSizedInt(int(p.trailer.ObjectRefSize))
 
 			if idx >= p.trailer.NumObjects {
 				panic(fmt.Errorf("array contains invalid entry index %d (max %d)", idx, p.trailer.NumObjects))
@@ -600,7 +582,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) *plistValue {
 			p.delayedObjects[&arr[i]] = valueOffset
 		}
 
-		return &plistValue{Array, arr}
+		return &cfArray{arr}
 	}
 	panic(fmt.Errorf("unexpected atom 0x%2.02x at offset %d", tag, off))
 }

@@ -20,7 +20,7 @@ type xmlPlistGenerator struct {
 	xmlEncoder *xml.Encoder
 }
 
-func (p *xmlPlistGenerator) generateDocument(pval *plistValue) {
+func (p *xmlPlistGenerator) generateDocument(root cfValue) {
 	io.WriteString(p.writer, xml.Header)
 	io.WriteString(p.writer, xmlDOCTYPE)
 
@@ -39,74 +39,87 @@ func (p *xmlPlistGenerator) generateDocument(pval *plistValue) {
 
 	p.xmlEncoder.EncodeToken(plistStartElement)
 
-	p.writePlistValue(pval)
+	p.writePlistValue(root)
 
 	p.xmlEncoder.EncodeToken(plistStartElement.End())
 	p.xmlEncoder.Flush()
 }
 
-func (p *xmlPlistGenerator) writePlistValue(pval *plistValue) {
+func (p *xmlPlistGenerator) writeDictionary(dict *cfDictionary) {
+	dict.sort()
+	startElement := xml.StartElement{Name: xml.Name{Local: "dict"}}
+	p.xmlEncoder.EncodeToken(startElement)
+	for i, k := range dict.keys {
+		p.xmlEncoder.EncodeElement(k, xml.StartElement{Name: xml.Name{Local: "key"}})
+		p.writePlistValue(dict.values[i])
+	}
+	p.xmlEncoder.EncodeToken(startElement.End())
+}
+
+func (p *xmlPlistGenerator) writeArray(a *cfArray) {
+	startElement := xml.StartElement{Name: xml.Name{Local: "array"}}
+	p.xmlEncoder.EncodeToken(startElement)
+	for _, v := range a.values {
+		p.writePlistValue(v)
+	}
+	p.xmlEncoder.EncodeToken(startElement.End())
+}
+
+func (p *xmlPlistGenerator) writePlistValue(pval cfValue) {
 	if pval == nil {
 		return
 	}
 
 	defer p.xmlEncoder.Flush()
 
+	if dict, ok := pval.(*cfDictionary); ok {
+		p.writeDictionary(dict)
+		return
+	} else if a, ok := pval.(*cfArray); ok {
+		p.writeArray(a)
+		return
+	}
+
+	// Everything here and beyond is encoded the same way: <key>value</key>
 	key := ""
-	encodedValue := pval.value
-	switch pval.kind {
-	case Dictionary:
-		startElement := xml.StartElement{Name: xml.Name{Local: "dict"}}
-		p.xmlEncoder.EncodeToken(startElement)
-		dict := encodedValue.(*dictionary)
-		dict.populateArrays()
-		for i, k := range dict.keys {
-			p.xmlEncoder.EncodeElement(k, xml.StartElement{Name: xml.Name{Local: "key"}})
-			p.writePlistValue(dict.values[i])
-		}
-		p.xmlEncoder.EncodeToken(startElement.End())
-	case Array:
-		startElement := xml.StartElement{Name: xml.Name{Local: "array"}}
-		p.xmlEncoder.EncodeToken(startElement)
-		values := encodedValue.([]*plistValue)
-		for _, v := range values {
-			p.writePlistValue(v)
-		}
-		p.xmlEncoder.EncodeToken(startElement.End())
-	case String:
+	var encodedValue interface{} = pval
+
+	switch pval := pval.(type) {
+	case cfString:
 		key = "string"
-	case Integer:
+	case *cfNumber:
 		key = "integer"
-		if pval.value.(signedInt).signed {
-			encodedValue = int64(pval.value.(signedInt).value)
+		if pval.signed {
+			encodedValue = int64(pval.value)
 		} else {
-			encodedValue = pval.value.(signedInt).value
+			encodedValue = pval.value
 		}
-	case Real:
+	case *cfReal:
 		key = "real"
-		encodedValue = pval.value.(sizedFloat).value
+		encodedValue = pval.value
 		switch {
-		case math.IsInf(pval.value.(sizedFloat).value, 1):
+		case math.IsInf(pval.value, 1):
 			encodedValue = "inf"
-		case math.IsInf(pval.value.(sizedFloat).value, -1):
+		case math.IsInf(pval.value, -1):
 			encodedValue = "-inf"
-		case math.IsNaN(pval.value.(sizedFloat).value):
+		case math.IsNaN(pval.value):
 			encodedValue = "nan"
 		}
-	case Boolean:
+	case cfBoolean:
 		key = "false"
-		b := pval.value.(bool)
+		b := bool(pval)
 		if b {
 			key = "true"
 		}
 		encodedValue = ""
-	case Data:
+	case cfData:
 		key = "data"
-		encodedValue = xml.CharData(base64.StdEncoding.EncodeToString(pval.value.([]byte)))
-	case Date:
+		encodedValue = xml.CharData(base64.StdEncoding.EncodeToString([]byte(pval)))
+	case cfDate:
 		key = "date"
-		encodedValue = pval.value.(time.Time).In(time.UTC).Format(time.RFC3339)
+		encodedValue = time.Time(pval).In(time.UTC).Format(time.RFC3339)
 	}
+
 	if key != "" {
 		err := p.xmlEncoder.EncodeElement(encodedValue, xml.StartElement{Name: xml.Name{Local: key}})
 		if err != nil {
@@ -131,7 +144,7 @@ type xmlPlistParser struct {
 	ntags              int
 }
 
-func (p *xmlPlistParser) parseDocument() (pval *plistValue, parseError error) {
+func (p *xmlPlistParser) parseDocument() (pval cfValue, parseError error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -162,7 +175,7 @@ func (p *xmlPlistParser) parseDocument() (pval *plistValue, parseError error) {
 	}
 }
 
-func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
+func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 	var charData xml.CharData
 	switch element.Name.Local {
 	case "plist":
@@ -189,7 +202,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 			panic(err)
 		}
 
-		return &plistValue{String, string(charData)}
+		return cfString(charData)
 	case "integer":
 		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
@@ -204,10 +217,10 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 
 		if s[0] == '-' {
 			n := mustParseInt(string(charData), 10, 64)
-			return &plistValue{Integer, signedInt{uint64(n), true}}
+			return &cfNumber{signed: true, value: uint64(n)}
 		} else {
 			n := mustParseUint(string(charData), 10, 64)
-			return &plistValue{Integer, signedInt{n, false}}
+			return &cfNumber{signed: false, value: n}
 		}
 	case "real":
 		p.ntags++
@@ -217,13 +230,13 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 		}
 
 		n := mustParseFloat(string(charData), 64)
-		return &plistValue{Real, sizedFloat{n, 64}}
+		return &cfReal{wide: true, value: n}
 	case "true", "false":
 		p.ntags++
 		p.xmlDecoder.Skip()
 
 		b := element.Name.Local == "true"
-		return &plistValue{Boolean, b}
+		return cfBoolean(b)
 	case "date":
 		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
@@ -236,7 +249,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 			panic(err)
 		}
 
-		return &plistValue{Date, t}
+		return cfDate(t)
 	case "data":
 		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
@@ -253,11 +266,12 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 			panic(err)
 		}
 
-		return &plistValue{Data, bytes[:l]}
+		return cfData(bytes[:l])
 	case "dict":
 		p.ntags++
 		var key *string
-		var subvalues map[string]*plistValue = make(map[string]*plistValue)
+		keys := make([]string, 0, 32)
+		values := make([]cfValue, 0, 32)
 		for {
 			token, err := p.xmlDecoder.Token()
 			if err != nil {
@@ -280,15 +294,16 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 					if key == nil {
 						panic(errors.New("missing key in dictionary"))
 					}
-					subvalues[*key] = p.parseXMLElement(el)
+					keys = append(keys, *key)
+					values = append(values, p.parseXMLElement(el))
 					key = nil
 				}
 			}
 		}
-		return &plistValue{Dictionary, &dictionary{m: subvalues}}
+		return &cfDictionary{keys: keys, values: values}
 	case "array":
 		p.ntags++
-		var subvalues []*plistValue = make([]*plistValue, 0, 10)
+		values := make([]cfValue, 0, 10)
 		for {
 			token, err := p.xmlDecoder.Token()
 			if err != nil {
@@ -300,10 +315,10 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) *plistValue {
 			}
 
 			if el, ok := token.(xml.StartElement); ok {
-				subvalues = append(subvalues, p.parseXMLElement(el))
+				values = append(values, p.parseXMLElement(el))
 			}
 		}
-		return &plistValue{Array, subvalues}
+		return &cfArray{values}
 	}
 	err := fmt.Errorf("encountered unknown element %s", element.Name.Local)
 	if p.ntags == 0 {

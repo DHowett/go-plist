@@ -31,8 +31,8 @@ func TestBplistInt128(t *testing.T) {
 	buf := bytes.NewReader(bplist)
 	d := newBplistParser(buf)
 	pval, _ := d.parseDocument()
-	if pval.kind != Integer || pval.value.(signedInt).value != expected {
-		t.Error("Expected", expected, "received", pval.value)
+	if pinteger, ok := pval.(*cfNumber); !ok || pinteger.value != expected {
+		t.Error("Expected", expected, "received", pval)
 	}
 }
 

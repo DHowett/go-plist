@@ -8,7 +8,7 @@ import (
 )
 
 type parser interface {
-	parseDocument() (*plistValue, error)
+	parseDocument() (cfValue, error)
 }
 
 // A Decoder reads a property list from an input stream.
@@ -38,7 +38,7 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 	p.reader.Seek(0, 0)
 
 	var parser parser
-	var pval *plistValue
+	var pval cfValue
 	if bytes.Equal(header, []byte("bplist")) {
 		parser = newBplistParser(p.reader)
 		pval, err = parser.parseDocument()

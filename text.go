@@ -28,7 +28,7 @@ var (
 	padding             = "0000"
 )
 
-func (p *textPlistGenerator) generateDocument(pval *plistValue) {
+func (p *textPlistGenerator) generateDocument(pval cfValue) {
 	p.writePlistValue(pval)
 }
 
@@ -103,32 +103,30 @@ func (p *textPlistGenerator) writeIndent() {
 	}
 }
 
-func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
+func (p *textPlistGenerator) writePlistValue(pval cfValue) {
 	if pval == nil {
 		return
 	}
 
-	switch pval.kind {
-	case Dictionary:
+	switch pval := pval.(type) {
+	case *cfDictionary:
+		pval.sort()
 		p.writer.Write([]byte(`{`))
 		p.deltaIndent(1)
-		dict := pval.value.(*dictionary)
-		dict.populateArrays()
-		for i, k := range dict.keys {
+		for i, k := range pval.keys {
 			p.writeIndent()
 			io.WriteString(p.writer, p.plistQuotedString(k))
 			p.writer.Write(p.dictKvDelimiter)
-			p.writePlistValue(dict.values[i])
+			p.writePlistValue(pval.values[i])
 			p.writer.Write(p.dictEntryDelimiter)
 		}
 		p.deltaIndent(-1)
 		p.writeIndent()
 		p.writer.Write([]byte(`}`))
-	case Array:
+	case *cfArray:
 		p.writer.Write([]byte(`(`))
 		p.deltaIndent(1)
-		values := pval.value.([]*plistValue)
-		for _, v := range values {
+		for _, v := range pval.values {
 			p.writeIndent()
 			p.writePlistValue(v)
 			p.writer.Write(p.arrayDelimiter)
@@ -136,51 +134,51 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 		p.deltaIndent(-1)
 		p.writeIndent()
 		p.writer.Write([]byte(`)`))
-	case String:
-		io.WriteString(p.writer, p.plistQuotedString(pval.value.(string)))
-	case Integer:
+	case cfString:
+		io.WriteString(p.writer, p.plistQuotedString(string(pval)))
+	case *cfNumber:
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`<*I`))
 		}
-		if pval.value.(signedInt).signed {
-			io.WriteString(p.writer, strconv.FormatInt(int64(pval.value.(signedInt).value), 10))
+		if pval.signed {
+			io.WriteString(p.writer, strconv.FormatInt(int64(pval.value), 10))
 		} else {
-			io.WriteString(p.writer, strconv.FormatUint(pval.value.(signedInt).value, 10))
+			io.WriteString(p.writer, strconv.FormatUint(uint64(pval.value), 10))
 		}
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`>`))
 		}
-	case Real:
+	case *cfReal:
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`<*R`))
 		}
-		io.WriteString(p.writer, strconv.FormatFloat(pval.value.(sizedFloat).value, 'g', -1, 64))
+		// GNUstep does not differentiate between 32/64-bit floats.
+		io.WriteString(p.writer, strconv.FormatFloat(float64(pval.value), 'g', -1, 64))
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`>`))
 		}
-	case Boolean:
-		b := pval.value.(bool)
+	case cfBoolean:
 		if p.format == GNUStepFormat {
-			if b {
+			if pval {
 				p.writer.Write([]byte(`<*BY>`))
 			} else {
 				p.writer.Write([]byte(`<*BN>`))
 			}
 		} else {
-			if b {
+			if pval {
 				p.writer.Write([]byte(`1`))
 			} else {
 				p.writer.Write([]byte(`0`))
 			}
 		}
-	case Data:
-		b := pval.value.([]byte)
+	case cfData:
 		var hexencoded [9]byte
 		var l int
 		var asc = 9
 		hexencoded[8] = ' '
 
 		p.writer.Write([]byte(`<`))
+		b := []byte(pval)
 		for i := 0; i < len(b); i += 4 {
 			l = i + 4
 			if l >= len(b) {
@@ -195,13 +193,13 @@ func (p *textPlistGenerator) writePlistValue(pval *plistValue) {
 			io.WriteString(p.writer, string(hexencoded[:asc]))
 		}
 		p.writer.Write([]byte(`>`))
-	case Date:
+	case cfDate:
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`<*D`))
-			io.WriteString(p.writer, pval.value.(time.Time).In(time.UTC).Format(textPlistTimeLayout))
+			io.WriteString(p.writer, time.Time(pval).In(time.UTC).Format(textPlistTimeLayout))
 			p.writer.Write([]byte(`>`))
 		} else {
-			io.WriteString(p.writer, p.plistQuotedString(pval.value.(time.Time).In(time.UTC).Format(textPlistTimeLayout)))
+			io.WriteString(p.writer, p.plistQuotedString(time.Time(pval).In(time.UTC).Format(textPlistTimeLayout)))
 		}
 	}
 }
@@ -244,7 +242,7 @@ type textPlistParser struct {
 	format             int
 }
 
-func (p *textPlistParser) parseDocument() (pval *plistValue, parseError error) {
+func (p *textPlistParser) parseDocument() (pval cfValue, parseError error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -323,7 +321,7 @@ ws:
 	}
 }
 
-func (p *textPlistParser) parseQuotedString() *plistValue {
+func (p *textPlistParser) parseQuotedString() cfString {
 	escaping := false
 	s := ""
 	for {
@@ -377,10 +375,10 @@ func (p *textPlistParser) parseQuotedString() *plistValue {
 		}
 		s += string(c)
 	}
-	return &plistValue{String, s}
+	return cfString(s)
 }
 
-func (p *textPlistParser) parseUnquotedString() *plistValue {
+func (p *textPlistParser) parseUnquotedString() cfString {
 	s := ""
 	for {
 		c, err := p.reader.ReadByte()
@@ -403,12 +401,13 @@ func (p *textPlistParser) parseUnquotedString() *plistValue {
 		panic(errors.New("invalid unquoted string (found an unquoted character that should be quoted?)"))
 	}
 
-	return &plistValue{String, s}
+	return cfString(s)
 }
 
-func (p *textPlistParser) parseDictionary() *plistValue {
-	var keypv *plistValue
-	subval := make(map[string]*plistValue)
+func (p *textPlistParser) parseDictionary() *cfDictionary {
+	var keypv cfValue
+	keys := make([]string, 0, 32)
+	values := make([]cfValue, 0, 32)
 	for {
 		p.chugWhitespace()
 
@@ -454,13 +453,15 @@ func (p *textPlistParser) parseDictionary() *plistValue {
 			panic(errors.New("missing ; in dictionary"))
 		}
 
-		subval[keypv.value.(string)] = val
+		keys = append(keys, string(keypv.(cfString)))
+		values = append(values, val)
 	}
-	return &plistValue{Dictionary, &dictionary{m: subval}}
+
+	return &cfDictionary{keys: keys, values: values}
 }
 
-func (p *textPlistParser) parseArray() *plistValue {
-	subval := make([]*plistValue, 0, 10)
+func (p *textPlistParser) parseArray() *cfArray {
+	values := make([]cfValue, 0, 32)
 	for {
 		c, err := p.reader.ReadByte()
 		// EOF here is an error: we're inside an array!
@@ -476,15 +477,17 @@ func (p *textPlistParser) parseArray() *plistValue {
 
 		p.reader.UnreadByte()
 		pval := p.parsePlistValue()
-		if pval.kind == String && pval.value.(string) == "" {
+		if str, ok := pval.(cfString); ok && string(str) == "" {
+			// Empty strings in arrays are apparently skipped?
+			// TODO: Figure out why this was implemented.
 			continue
 		}
-		subval = append(subval, pval)
+		values = append(values, pval)
 	}
-	return &plistValue{Array, subval}
+	return &cfArray{values}
 }
 
-func (p *textPlistParser) parseGNUStepValue(v []byte) *plistValue {
+func (p *textPlistParser) parseGNUStepValue(v []byte) cfValue {
 	if len(v) < 3 {
 		panic(errors.New("invalid GNUStep extended value"))
 	}
@@ -494,30 +497,30 @@ func (p *textPlistParser) parseGNUStepValue(v []byte) *plistValue {
 	case 'I':
 		if v[0] == '-' {
 			n := mustParseInt(string(v), 10, 64)
-			return &plistValue{Integer, signedInt{uint64(n), true}}
+			return &cfNumber{signed: true, value: uint64(n)}
 		} else {
 			n := mustParseUint(string(v), 10, 64)
-			return &plistValue{Integer, signedInt{n, false}}
+			return &cfNumber{signed: false, value: n}
 		}
 	case 'R':
 		n := mustParseFloat(string(v), 64)
-		return &plistValue{Real, sizedFloat{n, 64}}
+		return &cfReal{wide: true, value: n} // TODO(DH) 32/64
 	case 'B':
 		b := v[0] == 'Y'
-		return &plistValue{Boolean, b}
+		return cfBoolean(b)
 	case 'D':
 		t, err := time.Parse(textPlistTimeLayout, string(v))
 		if err != nil {
 			panic(err)
 		}
 
-		return &plistValue{Date, t.In(time.UTC)}
+		return cfDate(t.In(time.UTC))
 	}
 	panic(errors.New("invalid GNUStep type " + string(typ)))
 	return nil
 }
 
-func (p *textPlistParser) parsePlistValue() *plistValue {
+func (p *textPlistParser) parsePlistValue() cfValue {
 	for {
 		p.chugWhitespace()
 
@@ -546,7 +549,7 @@ func (p *textPlistParser) parsePlistValue() *plistValue {
 				if err != nil {
 					panic(err)
 				}
-				return &plistValue{Data, data}
+				return cfData(data)
 			}
 		case '"':
 			return p.parseQuotedString()

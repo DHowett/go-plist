@@ -52,7 +52,7 @@ func TestEncode(t *testing.T) {
 				printype := "%s"
 				for fmt, dat := range test.Expected {
 					if fmt == BinaryFormat {
-						printype = "%+v"
+						printype = "%2x"
 					} else {
 						printype = "%s"
 					}
@@ -63,7 +63,7 @@ func TestEncode(t *testing.T) {
 			printype := "%s"
 			for fmt, dat := range results {
 				if fmt == BinaryFormat {
-					printype = "%+v"
+					printype = "%2x"
 				} else {
 					printype = "%s"
 				}
