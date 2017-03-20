@@ -65,3 +65,21 @@ func (e plistParseError) Error() string {
 //
 // UIDs cannot be serialized in OpenStepFormat or GNUStepFormat property lists.
 type UID uint64
+
+// Marshaler is the interface implemented by types that can marshal themselves into valid
+// property list objects. The returned value is marshaled in place of the original value
+// implementing Marshaler
+//
+// If an error is returned by MarshalPlist, marshaling stops and the error is returned.
+type Marshaler interface {
+	MarshalPlist() (interface{}, error)
+}
+
+// Unmarshaler is the interface implemented by types that can unmarshal themselves from
+// property list objects. The UnmarshalPlist method receives a function that may
+// be called to unmarshal the original property list value into a field or variable.
+//
+// It is safe to call the unmarshal function more than once.
+type Unmarshaler interface {
+	UnmarshalPlist(unmarshal func(interface{}) error) error
+}

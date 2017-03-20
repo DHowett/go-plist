@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"fmt"
 	"reflect"
+	"runtime"
 	"time"
 )
 
@@ -17,12 +18,32 @@ func (u *incompatibleDecodeTypeError) Error() string {
 }
 
 var (
-	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
-	uidType             = reflect.TypeOf(UID(0))
+	plistUnmarshalerType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
+	textUnmarshalerType  = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	uidType              = reflect.TypeOf(UID(0))
 )
 
 func isEmptyInterface(v reflect.Value) bool {
 	return v.Kind() == reflect.Interface && v.NumMethod() == 0
+}
+
+func (p *Decoder) unmarshalPlistInterface(pval cfValue, unmarshalable Unmarshaler) {
+	err := unmarshalable.UnmarshalPlist(func(i interface{}) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				if _, ok := r.(runtime.Error); ok {
+					panic(r)
+				}
+				err = r.(error)
+			}
+		}()
+		p.unmarshal(pval, reflect.ValueOf(i))
+		return
+	})
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (p *Decoder) unmarshalTextInterface(pval cfString, unmarshalable encoding.TextUnmarshaler) {
@@ -98,20 +119,15 @@ func (p *Decoder) unmarshal(pval cfValue, val reflect.Value) {
 		panic(incompatibleTypeError)
 	}
 
-	if val.CanInterface() && val.Type().Implements(textUnmarshalerType) && val.Type() != timeType {
-		if str, ok := pval.(cfString); ok {
-			p.unmarshalTextInterface(str, val.Interface().(encoding.TextUnmarshaler))
-		} else {
-			panic(incompatibleTypeError)
-		}
+	if receiver, can := implementsInterface(val, plistUnmarshalerType); can {
+		p.unmarshalPlistInterface(pval, receiver.(Unmarshaler))
 		return
 	}
 
-	if val.CanAddr() {
-		pv := val.Addr()
-		if pv.CanInterface() && pv.Type().Implements(textUnmarshalerType) && val.Type() != timeType {
+	if val.Type() != timeType {
+		if receiver, can := implementsInterface(val, textUnmarshalerType); can {
 			if str, ok := pval.(cfString); ok {
-				p.unmarshalTextInterface(str, pv.Interface().(encoding.TextUnmarshaler))
+				p.unmarshalTextInterface(str, receiver.(encoding.TextUnmarshaler))
 			} else {
 				panic(incompatibleTypeError)
 			}

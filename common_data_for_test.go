@@ -1,6 +1,7 @@
 package plist
 
 import (
+	"errors"
 	"math"
 	"reflect"
 	"time"
@@ -75,6 +76,72 @@ func (b *TextMarshalingBoolViaPointer) UnmarshalText(text []byte) error {
 		b.b = true
 	}
 	return nil
+}
+
+type ArrayThatSerializesAsOneObject struct {
+	values []uint64
+}
+
+func (f ArrayThatSerializesAsOneObject) MarshalPlist() (interface{}, error) {
+	if len(f.values) == 1 {
+		return f.values[0], nil
+	}
+	return f.values, nil
+}
+
+func (f *ArrayThatSerializesAsOneObject) UnmarshalPlist(unmarshal func(interface{}) error) error {
+	var ui uint64
+	if err := unmarshal(&ui); err == nil {
+		f.values = []uint64{ui}
+		return nil
+	}
+
+	return unmarshal(&f.values)
+}
+
+type PlistMarshalingBoolByPointer struct {
+	b bool
+}
+
+func (b *PlistMarshalingBoolByPointer) MarshalPlist() (interface{}, error) {
+	if b.b {
+		return int64(-1), nil
+	}
+	return int64(-2), nil
+}
+
+func (b *PlistMarshalingBoolByPointer) UnmarshalPlist(unmarshal func(interface{}) error) error {
+	var val int64
+	err := unmarshal(&val)
+	if err != nil {
+		return err
+	}
+
+	b.b = val == -1
+	return nil
+}
+
+type BothMarshaler struct{}
+
+func (b *BothMarshaler) MarshalPlist() (interface{}, error) {
+	return map[string]string{"a": "b"}, nil
+}
+
+func (b *BothMarshaler) MarshalText() ([]byte, error) {
+	return []byte("shouldn't see this"), nil
+}
+
+type BothUnmarshaler struct {
+	Blah int64 `plist:"blah,omitempty"`
+}
+
+func (b *BothUnmarshaler) UnmarshalPlist(unmarshal func(interface{}) error) error {
+	// no error
+	return nil
+}
+
+func (b *BothUnmarshaler) UnmarshalText(text []byte) error {
+	return errors.New("shouldn't hit this")
 }
 
 var xmlPreamble string = `<?xml version="1.0" encoding="UTF-8"?>
@@ -587,6 +654,39 @@ var tests = []TestData{
 		}{
 			U: 1024,
 		},
+	},
+	{
+		Name: "Custom Marshaller/Unmarshaller by Value",
+		Data: []ArrayThatSerializesAsOneObject{
+			ArrayThatSerializesAsOneObject{[]uint64{100}},
+			ArrayThatSerializesAsOneObject{[]uint64{2, 4, 6, 8}},
+		},
+		Expected: map[int][]byte{
+			GNUStepFormat: []byte(`(<*I100>,(<*I2>,<*I4>,<*I6>,<*I8>,),)`),
+		},
+	},
+	{
+		Name: "Custom Marshaller/Unmarshaller by Pointer",
+		Data: &PlistMarshalingBoolByPointer{true},
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte(`-1`),
+			GNUStepFormat:  []byte(`<*I-1>`),
+		},
+	},
+	{
+		Name: "Type implementing both Text and Plist Marshaler",
+		Data: &BothMarshaler{},
+		Expected: map[int][]byte{
+			GNUStepFormat: []byte(`{a=b;}`),
+		},
+	},
+	{
+		Name: "Type implementing both Text and Plist Unmarshaler",
+		Data: &BothUnmarshaler{int64(1024)},
+		Expected: map[int][]byte{
+			GNUStepFormat: []byte(`{blah=<*I1024>;}`),
+		},
+		DecodeData: &BothUnmarshaler{int64(0)},
 	},
 }
 

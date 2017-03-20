@@ -25,9 +25,32 @@ func isEmptyValue(v reflect.Value) bool {
 }
 
 var (
-	textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
-	timeType          = reflect.TypeOf((*time.Time)(nil)).Elem()
+	plistMarshalerType = reflect.TypeOf((*Marshaler)(nil)).Elem()
+	textMarshalerType  = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	timeType           = reflect.TypeOf((*time.Time)(nil)).Elem()
 )
+
+func implementsInterface(val reflect.Value, interfaceType reflect.Type) (interface{}, bool) {
+	if val.CanInterface() && val.Type().Implements(interfaceType) {
+		return val.Interface(), true
+	}
+
+	if val.CanAddr() {
+		pv := val.Addr()
+		if pv.CanInterface() && pv.Type().Implements(interfaceType) {
+			return pv.Interface(), true
+		}
+	}
+	return nil, false
+}
+
+func (p *Encoder) marshalPlistInterface(marshalable Marshaler) cfValue {
+	value, err := marshalable.MarshalPlist()
+	if err != nil {
+		panic(err)
+	}
+	return p.marshal(reflect.ValueOf(value))
+}
 
 // marshalTextInterface marshals a TextMarshaler to a plist string.
 func (p *Encoder) marshalTextInterface(marshalable encoding.TextMarshaler) cfValue {
@@ -68,6 +91,10 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 		return nil
 	}
 
+	if receiver, can := implementsInterface(val, plistMarshalerType); can {
+		return p.marshalPlistInterface(receiver.(Marshaler))
+	}
+
 	// time.Time implements TextMarshaler, but we need to store it in RFC3339
 	if val.Type() == timeType {
 		return p.marshalTime(val)
@@ -80,14 +107,8 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 	}
 
 	// Check for text marshaler.
-	if val.CanInterface() && val.Type().Implements(textMarshalerType) {
-		return p.marshalTextInterface(val.Interface().(encoding.TextMarshaler))
-	}
-	if val.CanAddr() {
-		pv := val.Addr()
-		if pv.CanInterface() && pv.Type().Implements(textMarshalerType) {
-			return p.marshalTextInterface(pv.Interface().(encoding.TextMarshaler))
-		}
+	if receiver, can := implementsInterface(val, textMarshalerType); can {
+		return p.marshalTextInterface(receiver.(encoding.TextMarshaler))
 	}
 
 	// Descend into pointers or interfaces
