@@ -1,7 +1,6 @@
 package plist
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -21,10 +20,9 @@ var InvalidBplists []string = []string{
 }
 
 func TestInvalidBinaryPlists(t *testing.T) {
-	for idx, data := range InvalidBplists {
+	for _, data := range InvalidBplists {
 		var obj interface{}
 		buf := strings.NewReader(data)
-		fmt.Printf("%v %s\n", idx, obj)
 		err := NewDecoder(buf).Decode(&obj)
 		if err == nil {
 			t.Fatal("invalid plist failed to throw error")
