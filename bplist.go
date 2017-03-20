@@ -137,6 +137,10 @@ func (p *bplistGenerator) writePlistValue(pval cfValue) {
 		p.writeDataTag([]byte(pval))
 	case cfDate:
 		p.writeDateTag(time.Time(pval))
+	case cfUID:
+		p.writeUIDTag(UID(pval))
+	default:
+		panic(fmt.Errorf("unknown plist type %t", pval))
 	}
 }
 
@@ -199,6 +203,14 @@ func (p *bplistGenerator) writeIntTag(n uint64) {
 
 	binary.Write(p.writer, binary.BigEndian, tag)
 	binary.Write(p.writer, binary.BigEndian, val)
+}
+
+func (p *bplistGenerator) writeUIDTag(u UID) {
+	nbytes := minimumSizeForInt(uint64(u))
+	tag := uint8(bpTagUID | (nbytes - 1))
+
+	binary.Write(p.writer, binary.BigEndian, tag)
+	p.writeSizedInt(uint64(u), nbytes)
 }
 
 func (p *bplistGenerator) writeRealTag(n float64, bits int) {
@@ -523,7 +535,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 		return cfString(runes)
 	case bpTagUID: // Somehow different than int: low half is nbytes - 1 instead of log2(nbytes)
 		val, _ := p.readSizedInt(int(tag&0xF) + 1)
-		return &cfNumber{signed: false, value: val}
+		return cfUID(val)
 	case bpTagDictionary:
 		cnt := p.countForTag(tag)
 

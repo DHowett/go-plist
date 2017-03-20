@@ -102,6 +102,10 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 
 	typ := val.Type()
 
+	if typ == uidType {
+		return cfUID(val.Uint())
+	}
+
 	if val.Kind() == reflect.Struct {
 		return p.marshalStruct(typ, val)
 	}

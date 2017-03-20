@@ -18,6 +18,7 @@ func (u *incompatibleDecodeTypeError) Error() string {
 
 var (
 	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	uidType             = reflect.TypeOf(UID(0))
 )
 
 func isEmptyInterface(v reflect.Value) bool {
@@ -160,6 +161,19 @@ func (p *Decoder) unmarshal(pval cfValue, val reflect.Value) {
 		} else {
 			panic(incompatibleTypeError)
 		}
+	case cfUID:
+		if val.Type() == uidType {
+			val.SetUint(uint64(pval))
+		} else {
+			switch val.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				val.SetInt(int64(pval))
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				val.SetUint(uint64(pval))
+			default:
+				panic(incompatibleTypeError)
+			}
+		}
 	case *cfArray:
 		p.unmarshalArray(pval, val)
 	case *cfDictionary:
@@ -268,6 +282,8 @@ func (p *Decoder) valueInterface(pval cfValue) interface{} {
 		return []byte(pval)
 	case cfDate:
 		return time.Time(pval)
+	case cfUID:
+		return UID(pval)
 	}
 	return nil
 }

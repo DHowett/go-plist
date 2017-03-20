@@ -78,6 +78,17 @@ func (p *xmlPlistGenerator) writePlistValue(pval cfValue) {
 	} else if a, ok := pval.(*cfArray); ok {
 		p.writeArray(a)
 		return
+	} else if uid, ok := pval.(cfUID); ok {
+		p.writeDictionary(&cfDictionary{
+			keys: []string{"CF$UID"},
+			values: []cfValue{
+				&cfNumber{
+					signed: false,
+					value:  uint64(uid),
+				},
+			},
+		})
+		return
 	}
 
 	// Everything here and beyond is encoded the same way: <key>value</key>
@@ -300,6 +311,13 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 				}
 			}
 		}
+
+		if len(keys) == 1 && keys[0] == "CF$UID" && len(values) == 1 {
+			if integer, ok := values[0].(*cfNumber); ok {
+				return cfUID(integer.value)
+			}
+		}
+
 		return &cfDictionary{keys: keys, values: values}
 	case "array":
 		p.ntags++

@@ -149,5 +149,3 @@ func (cfDate) typeName() string {
 func (p cfDate) hash() interface{} {
 	return time.Time(p)
 }
-
-type UID uint64

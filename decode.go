@@ -93,6 +93,7 @@ func NewDecoder(r io.ReadSeeker) *Decoder {
 // in the interface value. If the interface value is nil, Unmarshal stores one of the following in the interface value:
 //
 //     string, bool, uint64, float64
+//     plist.UID for "CoreFoundation Keyed Archiver UIDs" (convertible to uint64)
 //     []byte, for plist data
 //     []interface{}, for plist arrays
 //     map[string]interface{}, for plist dictionaries
