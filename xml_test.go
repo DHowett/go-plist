@@ -31,6 +31,7 @@ func TestVariousIllegalXMLPlists(t *testing.T) {
 		"<plist><dict><string>helo</string></dict></plist>",
 		"<plist><dict><key>helo</key></dict></plist>",
 		"<plist><integer>helo</integer></plist>",
+		"<plist><integer></integer></plist>",
 		"<plist><real>helo</real></plist>",
 		"<plist><data>*@&amp;%#helo</data></plist>",
 		"<plist><date>*@&amp;%#helo</date></plist>",
