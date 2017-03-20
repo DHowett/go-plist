@@ -330,6 +330,43 @@ type bplistParser struct {
 	delayedObjects map[*cfValue]uint64
 }
 
+func (p *bplistParser) validateObjectListLength(off int64, length uint64, context string) {
+	if uint64(off)+(length*uint64(p.trailer.ObjectRefSize)) > p.trailer.OffsetTableOffset {
+		panic(fmt.Errorf("%s length (%v) puts its end beyond the offset table at 0x%x", context, length, p.trailer.OffsetTableOffset))
+	}
+}
+
+func (p *bplistParser) validateDocumentTrailer() {
+	if p.trailer.OffsetTableOffset >= uint64(p.trailerOffset) {
+		panic(fmt.Errorf("binary property list offset table beyond beginning of trailer (0x%x, trailer@0x%x)", p.trailer.OffsetTableOffset, p.trailerOffset))
+	}
+
+	if p.trailer.OffsetTableOffset < 9 {
+		panic(fmt.Errorf("binary property list offset table begins inside header (0x%x)", p.trailer.OffsetTableOffset))
+	}
+
+	if uint64(p.trailerOffset) > (p.trailer.NumObjects*uint64(p.trailer.OffsetIntSize))+p.trailer.OffsetTableOffset {
+		panic(errors.New("binary property list contains garbage between offset table and trailer"))
+	}
+
+	if p.trailer.NumObjects > uint64(p.trailerOffset) {
+		panic(fmt.Errorf("binary property list contains more objects (%v) than there are non-trailer bytes in the file (%v)", p.trailer.NumObjects, p.trailerOffset))
+	}
+
+	objectRefSize := uint64(1) << (8 * p.trailer.ObjectRefSize)
+	if p.trailer.NumObjects > objectRefSize {
+		panic(fmt.Errorf("binary property list contains more objects (%v) than its object ref size (%v bytes) can support", p.trailer.NumObjects, p.trailer.ObjectRefSize))
+	}
+
+	if p.trailer.OffsetIntSize < uint8(8) && (uint64(1)<<(8*p.trailer.OffsetIntSize)) <= p.trailer.OffsetTableOffset {
+		panic(errors.New("binary property offset size isn't big enough to address entire file"))
+	}
+
+	if p.trailer.TopObject >= p.trailer.NumObjects {
+		panic(fmt.Errorf("top object index %v is out of range (only %v objects exist)", p.trailer.TopObject, p.trailer.NumObjects))
+	}
+}
+
 func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -375,34 +412,7 @@ func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
 		panic(err)
 	}
 
-	if p.trailer.OffsetTableOffset >= uint64(p.trailerOffset) {
-		panic(fmt.Errorf("binary property list offset table beyond beginning of trailer (0x%x, trailer@0x%x)", p.trailer.OffsetTableOffset, p.trailerOffset))
-	}
-
-	if p.trailer.OffsetTableOffset < 9 {
-		panic(fmt.Errorf("binary property list offset table begins inside header (0x%x)", p.trailer.OffsetTableOffset))
-	}
-
-	if uint64(p.trailerOffset) > (p.trailer.NumObjects*uint64(p.trailer.OffsetIntSize))+p.trailer.OffsetTableOffset {
-		panic(errors.New("binary property list contains garbage between offset table and trailer"))
-	}
-
-	if p.trailer.NumObjects > uint64(p.trailerOffset) {
-		panic(fmt.Errorf("binary property list contains more objects (%v) than there are non-trailer bytes in the file (%v)", p.trailer.NumObjects, p.trailerOffset))
-	}
-
-	objectRefSize := uint64(1) << (8 * p.trailer.ObjectRefSize)
-	if p.trailer.NumObjects > objectRefSize {
-		panic(fmt.Errorf("binary property list contains more objects (%v) than its object ref size (%v bytes) can support", p.trailer.NumObjects, p.trailer.ObjectRefSize))
-	}
-
-	if p.trailer.OffsetIntSize < uint8(8) && (uint64(1)<<(8*p.trailer.OffsetIntSize)) <= p.trailer.OffsetTableOffset {
-		panic(errors.New("binary property offset size isn't big enough to address entire file"))
-	}
-
-	if p.trailer.TopObject >= p.trailer.NumObjects {
-		panic(fmt.Errorf("top object index %v is out of range (only %v objects exist)", p.trailer.TopObject, p.trailer.NumObjects))
-	}
+	p.validateDocumentTrailer()
 	p.offtable = make([]uint64, p.trailer.NumObjects)
 
 	// SEEK_SET
@@ -536,8 +546,8 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 		return cfDate(time)
 	case bpTagData:
 		cnt := p.countForTag(tag)
-		if int64(cnt) > p.trailerOffset-int64(off) {
-			panic(fmt.Errorf("data at %x longer than file (%v bytes, max is %v)", off, cnt, p.trailerOffset-int64(off)))
+		if uint64(off+int64(cnt)) > p.trailer.OffsetTableOffset {
+			panic(fmt.Errorf("data at %x longer than file (%v bytes, max is %v)", off, cnt, p.trailer.OffsetTableOffset))
 		}
 
 		bytes := make([]byte, cnt)
@@ -545,8 +555,12 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 		return cfData(bytes)
 	case bpTagASCIIString, bpTagUTF16String:
 		cnt := p.countForTag(tag)
-		if int64(cnt) > p.trailerOffset-int64(off) {
-			panic(fmt.Errorf("string at %x longer than file (%v bytes, max is %v)", off, cnt, p.trailerOffset-int64(off)))
+		characterWidth := uint64(1)
+		if tag&0xF0 == bpTagUTF16String {
+			characterWidth = 2
+		}
+		if uint64(off+int64(cnt*characterWidth)) > p.trailer.OffsetTableOffset {
+			panic(fmt.Errorf("string at %x longer than file (%v bytes, max is %v)", off, cnt*characterWidth, p.trailer.OffsetTableOffset))
 		}
 
 		if tag&0xF0 == bpTagASCIIString {
@@ -564,6 +578,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 		return cfUID(val)
 	case bpTagDictionary:
 		cnt := p.countForTag(tag)
+		p.validateObjectListLength(off, cnt*2, "dictionary")
 
 		keys := make([]string, cnt)
 		values := make([]cfValue, cnt)
@@ -600,6 +615,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 		return &cfDictionary{keys: keys, values: values}
 	case bpTagArray:
 		cnt := p.countForTag(tag)
+		p.validateObjectListLength(off, cnt, "array")
 
 		arr := make([]cfValue, cnt)
 		indices := make([]uint64, cnt)
