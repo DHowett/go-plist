@@ -198,7 +198,7 @@ func TestFormatDetection(t *testing.T) {
 		{OpenStepFormat, []byte(`(1,2,3,4,5)`)},
 		{OpenStepFormat, []byte(`<abab>`)},
 		{GNUStepFormat, []byte(`(1,2,<*I3>)`)},
-		{OpenStepFormat, []byte{0x00}},
+		{InvalidFormat, []byte{0x00}}, // This isn't a valid property list of any sort.
 	}
 
 	for i, fmttest := range plists {
