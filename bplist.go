@@ -375,8 +375,29 @@ func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
 		panic(err)
 	}
 
-	if p.trailer.NumObjects > uint64(math.Pow(2, 8*float64(p.trailer.ObjectRefSize))) {
+	if p.trailer.OffsetTableOffset >= uint64(p.trailerOffset) {
+		panic(fmt.Errorf("binary property list offset table beyond beginning of trailer (0x%x, trailer@0x%x)", p.trailer.OffsetTableOffset, p.trailerOffset))
+	}
+
+	if p.trailer.OffsetTableOffset < 9 {
+		panic(fmt.Errorf("binary property list offset table begins inside header (0x%x)", p.trailer.OffsetTableOffset))
+	}
+
+	if uint64(p.trailerOffset) > (p.trailer.NumObjects*uint64(p.trailer.OffsetIntSize))+p.trailer.OffsetTableOffset {
+		panic(errors.New("binary property list contains garbage between offset table and trailer"))
+	}
+
+	if p.trailer.NumObjects > uint64(p.trailerOffset) {
+		panic(fmt.Errorf("binary property list contains more objects (%v) than there are non-trailer bytes in the file (%v)", p.trailer.NumObjects, p.trailerOffset))
+	}
+
+	objectRefSize := uint64(1) << (8 * p.trailer.ObjectRefSize)
+	if p.trailer.NumObjects > objectRefSize {
 		panic(fmt.Errorf("binary property list contains more objects (%v) than its object ref size (%v bytes) can support", p.trailer.NumObjects, p.trailer.ObjectRefSize))
+	}
+
+	if p.trailer.OffsetIntSize < uint8(8) && (uint64(1)<<(8*p.trailer.OffsetIntSize)) <= p.trailer.OffsetTableOffset {
+		panic(errors.New("binary property offset size isn't big enough to address entire file"))
 	}
 
 	if p.trailer.TopObject >= p.trailer.NumObjects {
@@ -390,10 +411,11 @@ func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
 		panic(err)
 	}
 
+	maxOffset := p.trailer.OffsetTableOffset - 1
 	for i := uint64(0); i < p.trailer.NumObjects; i++ {
 		off, _ := p.readSizedInt(int(p.trailer.OffsetIntSize))
-		if off >= uint64(p.trailerOffset) {
-			panic(fmt.Errorf("object %v starts beyond end of plist trailer (%v vs %v)", i, off, p.trailerOffset))
+		if off > maxOffset {
+			panic(fmt.Errorf("object %v starts beyond beginning of object table (0x%x, table@0x%x)", i, off, maxOffset+1))
 		}
 		p.offtable[i] = off
 	}
@@ -405,7 +427,11 @@ func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
 	}
 
 	for pvalp, off := range p.delayedObjects {
-		*pvalp = p.valueAtOffset(off)
+		if pval, ok := p.objrefs[off]; ok {
+			*pvalp = pval
+		} else {
+			panic(fmt.Errorf("object@0x%x not referenced by object table", off))
+		}
 	}
 
 	pval = p.valueAtOffset(p.offtable[p.trailer.TopObject])
