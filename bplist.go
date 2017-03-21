@@ -513,7 +513,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 		case bpTagBoolTrue, bpTagBoolFalse:
 			return cfBoolean(tag == bpTagBoolTrue)
 		}
-		return cfNull{}
+		return nil
 	case bpTagInteger:
 		lo, hi := p.readSizedInt(1 << (tag & 0xF))
 		return &cfNumber{

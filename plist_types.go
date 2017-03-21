@@ -11,16 +11,6 @@ type cfValue interface {
 	hash() interface{}
 }
 
-type cfNull struct{}
-
-func (cfNull) typeName() string {
-	return "null"
-}
-
-func (cfNull) hash() interface{} {
-	return cfNull{}
-}
-
 type cfDictionary struct {
 	keys   sort.StringSlice
 	values []cfValue
