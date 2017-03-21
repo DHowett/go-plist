@@ -499,6 +499,16 @@ var tests = []TestData{
 		},
 	},
 	{
+		Name: "Floating-Point Negative Infinity",
+		Data: math.Inf(-1),
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte(`-Inf`),
+			GNUStepFormat:  []byte(`<*R-Inf>`),
+			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><real>-inf</real></plist>`),
+			BinaryFormat:   []byte{98, 112, 108, 105, 115, 116, 48, 48, 35, 255, 240, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17},
+		},
+	},
+	{
 		Name: "UTF-8 string",
 		Data: []string{"Hello, ASCII", "Hello, 世界"},
 		Expected: map[int][]byte{

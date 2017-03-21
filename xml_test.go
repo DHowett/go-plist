@@ -45,6 +45,7 @@ func TestVariousIllegalXMLPlists(t *testing.T) {
 		"<plist><data>",
 		"<plist><date>",
 		"<plist><array>",
+		"<plist/>",
 		"<pl",
 		"bplist00",
 	}
@@ -52,9 +53,9 @@ func TestVariousIllegalXMLPlists(t *testing.T) {
 	for _, plist := range plists {
 		buf := bytes.NewReader([]byte(plist))
 		d := newXMLPlistParser(buf)
-		_, err := d.parseDocument()
+		obj, err := d.parseDocument()
 		t.Logf("Error: %v", err)
-		if err == nil {
+		if obj != nil && err == nil {
 			t.Error("Expected error, received nothing.")
 		}
 	}
