@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"sort"
 	"time"
+
+	"howett.net/plist"
 )
 
 func PrettyPrint(w io.Writer, val interface{}) {
@@ -61,6 +63,8 @@ func printValue(w io.Writer, val interface{}, depth string) {
 			printValue(w, v, nd)
 		}
 		fmt.Fprintf(w, "%s)\n", depth)
+	case plist.UID:
+		fmt.Fprintf(w, "#%d\n", uint64(tv))
 	case int64, uint64, string, float32, float64, bool, time.Time:
 		fmt.Fprintf(w, "%+v\n", tv)
 	case uint8:
