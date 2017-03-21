@@ -48,3 +48,17 @@ func BenchmarkMapMarshal(b *testing.B) {
 		e.marshal(reflect.ValueOf(data))
 	}
 }
+
+func TestInvalidMarshal(t *testing.T) {
+	type I struct {
+		// you can't marshal funcs!
+		Thing func()
+	}
+	var val I
+	data, err := Marshal(val, OpenStepFormat)
+	if err == nil {
+		t.Fatalf("expected error; got plist data: %x", data)
+	} else {
+		t.Log(err)
+	}
+}
