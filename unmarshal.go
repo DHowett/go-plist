@@ -278,10 +278,8 @@ func (p *Decoder) valueInterface(pval cfValue) interface{} {
 	case *cfNumber:
 		if pval.signed {
 			return int64(pval.value)
-		} else {
-			return pval.value
 		}
-		return int64(pval.value)
+		return pval.value
 	case *cfReal:
 		if pval.wide {
 			return float64(pval.value)
