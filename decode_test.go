@@ -161,7 +161,7 @@ func TestDecode(t *testing.T) {
 		if failed {
 			if test.ShouldFail {
 				t.Logf("Expected: Error")
-				return
+				continue
 			}
 
 			t.Logf("Expected: %#v\n", d)
