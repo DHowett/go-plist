@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-var InvalidTextPlists []string = []string{
+var InvalidTextPlists = []string{
 	"(/",
 	"{/",
 	"<*I>",

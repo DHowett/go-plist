@@ -145,7 +145,7 @@ func (b *BothUnmarshaler) UnmarshalText(text []byte) error {
 	return errors.New("shouldn't hit this")
 }
 
-var xmlPreamble string = `<?xml version="1.0" encoding="UTF-8"?>
+var xmlPreamble = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 `
 
@@ -735,7 +735,7 @@ type EverythingTestData struct {
 	Date     time.Time `plist:"date"`
 }
 
-var plistValueTreeRawData *EverythingTestData = &EverythingTestData{
+var plistValueTreeRawData = &EverythingTestData{
 	Intarray: []uint64{1, 8, 16, 32, 64, 2, 9, 17, 33, 65},
 	Floats:   []float64{32.0, 64.0},
 	Booleans: []bool{true, false},
@@ -744,10 +744,10 @@ var plistValueTreeRawData *EverythingTestData = &EverythingTestData{
 	Date:     time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC),
 }
 var plistValueTree cfValue
-var plistValueTreeAsBplist []byte = []byte{98, 112, 108, 105, 115, 116, 48, 48, 214, 1, 13, 17, 21, 25, 27, 2, 14, 18, 22, 26, 28, 88, 105, 110, 116, 97, 114, 114, 97, 121, 170, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 1, 16, 8, 16, 16, 16, 32, 16, 64, 16, 2, 16, 9, 16, 17, 16, 33, 16, 65, 86, 102, 108, 111, 97, 116, 115, 162, 15, 16, 34, 66, 0, 0, 0, 35, 64, 80, 0, 0, 0, 0, 0, 0, 88, 98, 111, 111, 108, 101, 97, 110, 115, 162, 19, 20, 9, 8, 87, 115, 116, 114, 105, 110, 103, 115, 162, 23, 24, 92, 72, 101, 108, 108, 111, 44, 32, 65, 83, 67, 73, 73, 105, 0, 72, 0, 101, 0, 108, 0, 108, 0, 111, 0, 44, 0, 32, 78, 22, 117, 76, 84, 100, 97, 116, 97, 68, 1, 2, 3, 4, 84, 100, 97, 116, 101, 51, 65, 184, 69, 117, 120, 0, 0, 0, 8, 21, 30, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 68, 71, 76, 85, 94, 97, 98, 99, 107, 110, 123, 142, 147, 152, 157, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 166}
-var plistValueTreeAsXML string = xmlPreamble + `<plist version="1.0"><dict><key>intarray</key><array><integer>1</integer><integer>8</integer><integer>16</integer><integer>32</integer><integer>64</integer><integer>2</integer><integer>9</integer><integer>17</integer><integer>33</integer><integer>65</integer></array><key>floats</key><array><real>32</real><real>64</real></array><key>booleans</key><array><true></true><false></false></array><key>strings</key><array><string>Hello, ASCII</string><string>Hello, 世界</string></array><key>data</key><data>AQIDBA==</data><key>date</key><date>2013-11-27T00:34:00Z</date></dict></plist>`
-var plistValueTreeAsOpenStep string = `{booleans=(1,0,);data=<01020304>;date="2013-11-27 00:34:00 +0000";floats=(32,64,);intarray=(1,8,16,32,64,2,9,17,33,65,);strings=("Hello, ASCII","Hello, \U4e16\U754c",);}`
-var plistValueTreeAsGNUStep string = `{booleans=(<*BY>,<*BN>,);data=<01020304>;date=<*D2013-11-27 00:34:00 +0000>;floats=(<*R32>,<*R64>,);intarray=(<*I1>,<*I8>,<*I16>,<*I32>,<*I64>,<*I2>,<*I9>,<*I17>,<*I33>,<*I65>,);strings=("Hello, ASCII","Hello, \U4e16\U754c",);}`
+var plistValueTreeAsBplist = []byte{98, 112, 108, 105, 115, 116, 48, 48, 214, 1, 13, 17, 21, 25, 27, 2, 14, 18, 22, 26, 28, 88, 105, 110, 116, 97, 114, 114, 97, 121, 170, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 1, 16, 8, 16, 16, 16, 32, 16, 64, 16, 2, 16, 9, 16, 17, 16, 33, 16, 65, 86, 102, 108, 111, 97, 116, 115, 162, 15, 16, 34, 66, 0, 0, 0, 35, 64, 80, 0, 0, 0, 0, 0, 0, 88, 98, 111, 111, 108, 101, 97, 110, 115, 162, 19, 20, 9, 8, 87, 115, 116, 114, 105, 110, 103, 115, 162, 23, 24, 92, 72, 101, 108, 108, 111, 44, 32, 65, 83, 67, 73, 73, 105, 0, 72, 0, 101, 0, 108, 0, 108, 0, 111, 0, 44, 0, 32, 78, 22, 117, 76, 84, 100, 97, 116, 97, 68, 1, 2, 3, 4, 84, 100, 97, 116, 101, 51, 65, 184, 69, 117, 120, 0, 0, 0, 8, 21, 30, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 68, 71, 76, 85, 94, 97, 98, 99, 107, 110, 123, 142, 147, 152, 157, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 166}
+var plistValueTreeAsXML = xmlPreamble + `<plist version="1.0"><dict><key>intarray</key><array><integer>1</integer><integer>8</integer><integer>16</integer><integer>32</integer><integer>64</integer><integer>2</integer><integer>9</integer><integer>17</integer><integer>33</integer><integer>65</integer></array><key>floats</key><array><real>32</real><real>64</real></array><key>booleans</key><array><true></true><false></false></array><key>strings</key><array><string>Hello, ASCII</string><string>Hello, 世界</string></array><key>data</key><data>AQIDBA==</data><key>date</key><date>2013-11-27T00:34:00Z</date></dict></plist>`
+var plistValueTreeAsOpenStep = `{booleans=(1,0,);data=<01020304>;date="2013-11-27 00:34:00 +0000";floats=(32,64,);intarray=(1,8,16,32,64,2,9,17,33,65,);strings=("Hello, ASCII","Hello, \U4e16\U754c",);}`
+var plistValueTreeAsGNUStep = `{booleans=(<*BY>,<*BN>,);data=<01020304>;date=<*D2013-11-27 00:34:00 +0000>;floats=(<*R32>,<*R64>,);intarray=(<*I1>,<*I8>,<*I16>,<*I32>,<*I64>,<*I2>,<*I9>,<*I17>,<*I33>,<*I65>,);strings=("Hello, ASCII","Hello, \U4e16\U754c",);}`
 
 type LaxTestData struct {
 	I64 int64

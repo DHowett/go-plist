@@ -23,7 +23,7 @@ import (
 	},
 */
 
-var InvalidBplists [][]byte = [][]byte{
+var InvalidBplists = [][]byte{
 	// Bad magic
 	[]byte{
 		'x', 'p', 'l', 'i', 's', 't', '3', '0',

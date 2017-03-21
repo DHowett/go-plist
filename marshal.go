@@ -139,9 +139,9 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return &cfNumber{signed: false, value: val.Uint()}
 	case reflect.Float32:
-		return &cfReal{wide: false, value: float64(val.Float())}
+		return &cfReal{wide: false, value: val.Float()}
 	case reflect.Float64:
-		return &cfReal{wide: true, value: float64(val.Float())}
+		return &cfReal{wide: true, value: val.Float()}
 	case reflect.Bool:
 		return cfBoolean(val.Bool())
 	case reflect.Slice, reflect.Array:
@@ -183,5 +183,4 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 	default:
 		panic(&unknownTypeError{typ})
 	}
-	return nil
 }

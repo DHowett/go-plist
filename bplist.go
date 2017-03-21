@@ -120,11 +120,11 @@ func (p *bplistGenerator) writePlistValue(pval cfValue) {
 	case *cfDictionary:
 		p.writeDictionaryTag(pval)
 	case *cfArray:
-		p.writeArrayTag([]cfValue(pval.values))
+		p.writeArrayTag(pval.values)
 	case cfString:
 		p.writeStringTag(string(pval))
 	case *cfNumber:
-		p.writeIntTag(uint64(pval.value))
+		p.writeIntTag(pval.value)
 	case *cfReal:
 		if pval.wide {
 			p.writeRealTag(pval.value, 64)
@@ -155,7 +155,6 @@ func minimumSizeForInt(n uint64) int {
 	default:
 		return 8
 	}
-	panic(errors.New("illegal integer size"))
 }
 
 func (p *bplistGenerator) writeSizedInt(n uint64, nbytes int) {
@@ -321,7 +320,6 @@ func newBplistGenerator(w io.Writer) *bplistGenerator {
 type bplistParser struct {
 	reader        io.ReadSeeker
 	version       int
-	buf           []byte
 	objrefs       map[uint64]cfValue
 	offtable      []uint64
 	trailer       bplistTrailer
@@ -466,7 +464,7 @@ func (p *bplistParser) readSizedInt(nbytes int) (uint64, uint64) {
 	case 8:
 		var val uint64
 		binary.Read(p.reader, binary.BigEndian, &val)
-		return uint64(val), 0
+		return val, 0
 	case 16:
 		var high, low uint64
 		binary.Read(p.reader, binary.BigEndian, &high)

@@ -75,9 +75,8 @@ func (*cfNumber) typeName() string {
 func (p *cfNumber) hash() interface{} {
 	if p.signed {
 		return int64(p.value)
-	} else {
-		return p.value
 	}
+	return p.value
 }
 
 type cfReal struct {
@@ -92,9 +91,8 @@ func (cfReal) typeName() string {
 func (p *cfReal) hash() interface{} {
 	if p.wide {
 		return p.value
-	} else {
-		return float32(p.value)
 	}
+	return float32(p.value)
 }
 
 type cfBoolean bool

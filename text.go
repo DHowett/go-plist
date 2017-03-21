@@ -143,7 +143,7 @@ func (p *textPlistGenerator) writePlistValue(pval cfValue) {
 		if pval.signed {
 			io.WriteString(p.writer, strconv.FormatInt(int64(pval.value), 10))
 		} else {
-			io.WriteString(p.writer, strconv.FormatUint(uint64(pval.value), 10))
+			io.WriteString(p.writer, strconv.FormatUint(pval.value, 10))
 		}
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`>`))
@@ -153,7 +153,7 @@ func (p *textPlistGenerator) writePlistValue(pval cfValue) {
 			p.writer.Write([]byte(`<*R`))
 		}
 		// GNUstep does not differentiate between 32/64-bit floats.
-		io.WriteString(p.writer, strconv.FormatFloat(float64(pval.value), 'g', -1, 64))
+		io.WriteString(p.writer, strconv.FormatFloat(pval.value, 'g', -1, 64))
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`>`))
 		}
@@ -517,7 +517,6 @@ func (p *textPlistParser) parseGNUStepValue(v []byte) cfValue {
 		return cfDate(t.In(time.UTC))
 	}
 	panic(errors.New("invalid GNUStep type " + string(typ)))
-	return nil
 }
 
 func (p *textPlistParser) parsePlistValue() cfValue {
@@ -565,7 +564,6 @@ func (p *textPlistParser) parsePlistValue() cfValue {
 			return p.parseUnquotedString()
 		}
 	}
-	return nil
 }
 
 func newTextPlistParser(r io.Reader) *textPlistParser {

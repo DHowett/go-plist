@@ -154,14 +154,14 @@ func (p *Decoder) unmarshal(pval cfValue, val reflect.Value) {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			val.SetInt(int64(pval.value))
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-			val.SetUint(uint64(pval.value))
+			val.SetUint(pval.value)
 		default:
 			panic(incompatibleTypeError)
 		}
 	case *cfReal:
 		if val.Kind() == reflect.Float32 || val.Kind() == reflect.Float64 {
 			// TODO: Consider warning on a downcast (storing a 64-bit value in a 32-bit reflect)
-			val.SetFloat(float64(pval.value))
+			val.SetFloat(pval.value)
 		} else {
 			panic(incompatibleTypeError)
 		}
@@ -282,7 +282,7 @@ func (p *Decoder) valueInterface(pval cfValue) interface{} {
 		return pval.value
 	case *cfReal:
 		if pval.wide {
-			return float64(pval.value)
+			return pval.value
 		} else {
 			return float32(pval.value)
 		}
