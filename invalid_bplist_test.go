@@ -24,9 +24,22 @@ import (
 */
 
 var InvalidBplists [][]byte = [][]byte{
+	// Bad magic
+	[]byte{
+		'x', 'p', 'l', 'i', 's', 't', '3', '0',
+	},
 	// Bad version
 	[]byte{
 		'b', 'p', 'l', 'i', 's', 't', '3', '0',
+	},
+	// Bad version II
+	[]byte{
+		'b', 'p', 'l', 'i', 's', 't', '@', 'A',
+	},
+	// Too short
+	[]byte{
+		'b', 'p', 'l', 'i', 's', 't', '0', '0',
+		0x00,
 	},
 	// Offset table inside trailer
 	[]byte{
@@ -368,6 +381,38 @@ var InvalidBplists [][]byte = [][]byte{
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0C,
 	},
+	// Invalid float ("7-byte")
+	[]byte{
+		'b', 'p', 'l', 'i', 's', 't', '0', '0',
+
+		0x27,
+
+		0x08,
+
+		0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01,
+		0x01,
+		0x01,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09,
+	},
+	// Invalid integer (8^5)
+	[]byte{
+		'b', 'p', 'l', 'i', 's', 't', '0', '0',
+
+		0x15,
+
+		0x08,
+
+		0x00, 0x00, 0x00, 0x00, 0x00,
+		0x01,
+		0x01,
+		0x01,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09,
+	},
 	// Invalid atom
 	[]byte{
 		'b', 'p', 'l', 'i', 's', 't', '0', '0',
@@ -388,9 +433,9 @@ var InvalidBplists [][]byte = [][]byte{
 
 func TestInvalidBinaryPlists(t *testing.T) {
 	for _, data := range InvalidBplists {
-		var obj interface{}
-		buf := strings.NewReader(data)
-		err := NewDecoder(buf).Decode(&obj)
+		buf := bytes.NewReader(data)
+		d := newBplistParser(buf)
+		_, err := d.parseDocument()
 		if err == nil {
 			t.Fatal("invalid plist failed to throw error")
 		} else {
