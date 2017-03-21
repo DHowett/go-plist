@@ -26,7 +26,7 @@ var InvalidTextPlists []string = []string{
 	"{¬=A;}",  // that character should be in quotes for goth GNUStep and OpenStep
 	`{"A"A;}`, // there should be an = between "A" and A
 	`{"A"=A}`, // there should be a ; at the end of the dictionary
-	"<*F>",    // invalid GNUstep type F
+	"<*F33>",  // invalid GNUstep type F
 	"<EQ>",    // invalid data that isn't hex
 }
 
