@@ -15,19 +15,17 @@ import (
 type bplistParser struct {
 	reader        io.ReadSeeker
 	version       int
-	objrefs       map[uint64]cfValue
+	objects       []cfValue // object ID to object
 	offtable      []uint64
 	trailer       bplistTrailer
 	trailerOffset int64
 
-	delayedObjects map[*cfValue]uint64
-
 	containerStack []uint64 // slice of object IDs; manipulated during container deserialization
 }
 
-func (p *bplistParser) validateObjectListLength(off int64, length uint64, context string) {
+func (p *bplistParser) validateObjectListLength(off int64, oid uint64, length uint64, context string) {
 	if uint64(off)+(length*uint64(p.trailer.ObjectRefSize)) > p.trailer.OffsetTableOffset {
-		panic(fmt.Errorf("%s length (%v) puts its end beyond the offset table at 0x%x", context, length, p.trailer.OffsetTableOffset))
+		panic(fmt.Errorf("%s#%d length (%v) puts its end beyond the offset table at 0x%x", context, oid, length, p.trailer.OffsetTableOffset))
 	}
 }
 
@@ -54,11 +52,11 @@ func (p *bplistParser) validateDocumentTrailer() {
 	}
 
 	if p.trailer.OffsetIntSize < uint8(8) && (uint64(1)<<(8*p.trailer.OffsetIntSize)) <= p.trailer.OffsetTableOffset {
-		panic(errors.New("binary property offset size isn't big enough to address entire file"))
+		panic(errors.New("binary property list offset size isn't big enough to address entire file"))
 	}
 
 	if p.trailer.TopObject >= p.trailer.NumObjects {
-		panic(fmt.Errorf("top object index %v is out of range (only %v objects exist)", p.trailer.TopObject, p.trailer.NumObjects))
+		panic(fmt.Errorf("top object #%d is out of range (only %d objects exist)", p.trailer.TopObject, p.trailer.NumObjects))
 	}
 }
 
@@ -85,10 +83,7 @@ func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
 		panic(invalidPlistError{"binary", errors.New("mismatched magic")})
 	}
 
-	_, err := p.reader.Read(ver)
-	if err != nil {
-		panic(err)
-	}
+	must2(p.reader.Read(ver))
 
 	p.version = int(mustParseInt(string(ver), 10, 0))
 
@@ -96,50 +91,38 @@ func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
 		panic(fmt.Errorf("unexpected version %d", p.version))
 	}
 
-	p.objrefs = make(map[uint64]cfValue)
+	var err error
 	p.trailerOffset, err = p.reader.Seek(-32, 2)
-	if err != nil && err != io.EOF {
+	if err != nil {
 		panic(err)
 	}
 
-	err = binary.Read(p.reader, binary.BigEndian, &p.trailer)
-	if err != nil && err != io.EOF {
-		panic(err)
-	}
-
+	must(binary.Read(p.reader, binary.BigEndian, &p.trailer))
 	p.validateDocumentTrailer()
+
+	// INVARIANTS:
+	// - Entire offset table is before trailer
+	// - Offset table begins after header
+	// - Offset table can address entire file
+	// - Object IDs are big enough to support the number of objects in this plist
+	// - Top object is in range
+
+	must2(p.reader.Seek(int64(p.trailer.OffsetTableOffset), 0)) // SEEK_SET
+
+	p.objects = make([]cfValue, p.trailer.NumObjects)
 	p.offtable = make([]uint64, p.trailer.NumObjects)
-
-	// SEEK_SET
-	_, err = p.reader.Seek(int64(p.trailer.OffsetTableOffset), 0)
-	if err != nil && err != io.EOF {
-		panic(err)
-	}
-
 	maxOffset := p.trailer.OffsetTableOffset - 1
 	for i := uint64(0); i < p.trailer.NumObjects; i++ {
 		off, _ := p.readSizedInt(int(p.trailer.OffsetIntSize))
 		if off > maxOffset {
-			panic(fmt.Errorf("object %v starts beyond beginning of object table (0x%x, table@0x%x)", i, off, maxOffset+1))
+			panic(fmt.Errorf("object#%d starts beyond beginning of object table (0x%x, table@0x%x)", i, off, maxOffset+1))
 		}
 		p.offtable[i] = off
 	}
 
-	p.delayedObjects = make(map[*cfValue]uint64)
+	root := p.objectAtIndex(p.trailer.TopObject)
 
-	for _, off := range p.offtable {
-		p.valueAtOffset(off)
-	}
-
-	for pvalp, off := range p.delayedObjects {
-		if pval, ok := p.objrefs[off]; ok {
-			*pvalp = pval
-		} else {
-			panic(fmt.Errorf("object@0x%x not referenced by object table", off))
-		}
-	}
-
-	pval = p.valueAtOffset(p.offtable[p.trailer.TopObject])
+	pval = root
 	return
 }
 
@@ -182,25 +165,44 @@ func (p *bplistParser) countForTag(tag uint8) uint64 {
 	return cnt
 }
 
-func (p *bplistParser) valueAtOffset(off uint64) cfValue {
-	if pval, ok := p.objrefs[off]; ok {
+func (p *bplistParser) objectAtIndex(index uint64) cfValue {
+	if index >= p.trailer.NumObjects {
+		panic(fmt.Errorf("invalid object #%d (max %d)", index, p.trailer.NumObjects))
+	}
+
+	if pval := p.objects[index]; pval != nil {
 		return pval
 	}
-	pval := p.parseTagAtOffset(int64(off))
-	p.objrefs[off] = pval
+	pval := p.parseTagAtOffset(int64(p.offtable[index]), index)
+	p.objects[index] = pval
 	return pval
+
 }
 
-func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
+func (p *bplistParser) panicNestedObject(oid uint64) {
+	oids := ""
+	for _, v := range p.containerStack {
+		oids += fmt.Sprintf("#%d > ", v)
+	}
+
+	// %s%d: oids above ends with " > "
+	panic(fmt.Errorf("self-referential collection#%d (%s#%d) cannot be deserialized", oid, oids, oid))
+}
+
+func (p *bplistParser) parseTagAtOffset(off int64, oid uint64) cfValue {
+	for _, v := range p.containerStack {
+		if v == oid {
+			p.panicNestedObject(oid)
+		}
+	}
+	p.containerStack = append(p.containerStack, oid)
+	defer func() {
+		p.containerStack = p.containerStack[:len(p.containerStack)-1]
+	}()
+
 	var tag uint8
-	_, err := p.reader.Seek(off, 0)
-	if err != nil {
-		panic(err)
-	}
-	err = binary.Read(p.reader, binary.BigEndian, &tag)
-	if err != nil {
-		panic(err)
-	}
+	must2(p.reader.Seek(off, 0))
+	must(binary.Read(p.reader, binary.BigEndian, &tag))
 
 	switch tag & 0xF0 {
 	case bpTagNull:
@@ -208,7 +210,6 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 		case bpTagBoolTrue, bpTagBoolFalse:
 			return cfBoolean(tag == bpTagBoolTrue)
 		}
-		return nil
 	case bpTagInteger:
 		lo, hi := p.readSizedInt(1 << (tag & 0xF))
 		return &cfNumber{
@@ -242,7 +243,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 	case bpTagData:
 		cnt := p.countForTag(tag)
 		if uint64(off+int64(cnt)) > p.trailer.OffsetTableOffset {
-			panic(fmt.Errorf("data at %x longer than file (%v bytes, max is %v)", off, cnt, p.trailer.OffsetTableOffset))
+			panic(fmt.Errorf("data#%d @ %x longer than file (%v bytes, max is %v)", oid, off, cnt, p.trailer.OffsetTableOffset))
 		}
 
 		bytes := make([]byte, cnt)
@@ -255,7 +256,7 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 			characterWidth = 2
 		}
 		if uint64(off+int64(cnt*characterWidth)) > p.trailer.OffsetTableOffset {
-			panic(fmt.Errorf("string at %x longer than file (%v bytes, max is %v)", off, cnt*characterWidth, p.trailer.OffsetTableOffset))
+			panic(fmt.Errorf("string#%d @ %x longer than file (%v bytes, max is %v)", oid, off, cnt*characterWidth, p.trailer.OffsetTableOffset))
 		}
 
 		if tag&0xF0 == bpTagASCIIString {
@@ -273,35 +274,22 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 		return cfUID(val)
 	case bpTagDictionary:
 		cnt := p.countForTag(tag)
-		p.validateObjectListLength(off, cnt*2, "dictionary")
+		p.validateObjectListLength(off, oid, cnt*2, "dictionary")
 
 		keys := make([]string, cnt)
 		values := make([]cfValue, cnt)
 		indices := make([]uint64, cnt*2)
 		for i := uint64(0); i < cnt*2; i++ {
-			idx, _ := p.readSizedInt(int(p.trailer.ObjectRefSize))
-
-			if idx >= p.trailer.NumObjects {
-				panic(fmt.Errorf("dictionary contains invalid entry index %d (max %d)", idx, p.trailer.NumObjects))
-			}
-
-			indices[i] = idx
+			indices[i], _ = p.readSizedInt(int(p.trailer.ObjectRefSize))
 		}
 
 		for i := uint64(0); i < cnt; i++ {
-			keyOffset := p.offtable[indices[i]]
-			valueOffset := p.offtable[indices[i+cnt]]
-			if keyOffset == uint64(off) {
-				panic(fmt.Errorf("dictionary contains self-referential key %x (index %d)", off, i))
-			}
-			if valueOffset == uint64(off) {
-				panic(fmt.Errorf("dictionary contains self-referential value %x (index %d)", off, i))
-			}
+			kval := p.objectAtIndex(indices[i])
+			vval := p.objectAtIndex(indices[i+cnt])
 
-			kval := p.valueAtOffset(keyOffset)
 			if str, ok := kval.(cfString); ok {
 				keys[i] = string(str)
-				p.delayedObjects[&values[i]] = valueOffset
+				values[i] = vval
 			} else {
 				panic(fmt.Errorf("dictionary contains non-string key at index %d", i))
 			}
@@ -310,30 +298,22 @@ func (p *bplistParser) parseTagAtOffset(off int64) cfValue {
 		return &cfDictionary{keys: keys, values: values}
 	case bpTagArray:
 		cnt := p.countForTag(tag)
-		p.validateObjectListLength(off, cnt, "array")
+		p.validateObjectListLength(off, oid, cnt, "array")
 
-		arr := make([]cfValue, cnt)
+		// this is fully read in advance because objectAtIndex can seek.
 		indices := make([]uint64, cnt)
 		for i := uint64(0); i < cnt; i++ {
-			idx, _ := p.readSizedInt(int(p.trailer.ObjectRefSize))
-
-			if idx >= p.trailer.NumObjects {
-				panic(fmt.Errorf("array contains invalid entry index %d (max %d)", idx, p.trailer.NumObjects))
-			}
-
-			indices[i] = idx
+			indices[i], _ = p.readSizedInt(int(p.trailer.ObjectRefSize))
 		}
-		for i := uint64(0); i < cnt; i++ {
-			valueOffset := p.offtable[indices[i]]
-			if valueOffset == uint64(off) {
-				panic(fmt.Errorf("array contains self-referential value %x (index %d)", off, i))
-			}
-			p.delayedObjects[&arr[i]] = valueOffset
+
+		arr := make([]cfValue, cnt)
+		for i, newOid := range indices {
+			arr[i] = p.objectAtIndex(newOid)
 		}
 
 		return &cfArray{arr}
 	}
-	panic(fmt.Errorf("unexpected atom 0x%2.02x at offset %d", tag, off))
+	panic(fmt.Errorf("unexpected atom#%d 0x%2.02x at offset %d", oid, tag, off))
 }
 
 func newBplistParser(r io.ReadSeeker) *bplistParser {
