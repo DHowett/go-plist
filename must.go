@@ -48,15 +48,3 @@ func mustParseBool(str string) bool {
 	}
 	return i
 }
-
-func must(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-func must2(v interface{}, err error) {
-	if err != nil {
-		panic(err)
-	}
-}
