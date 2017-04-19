@@ -267,7 +267,7 @@ func (p *bplistParser) parseASCIIStringAtOffset(off offset) string {
 		panic(fmt.Errorf("ascii string@0x%x too long (%v bytes, max is %v)", off, len, p.trailer.OffsetTableOffset-uint64(start)))
 	}
 
-	return string(p.buffer[start : start+offset(len)])
+	return zeroCopy8BitString(p.buffer, int(start), int(len))
 }
 
 func (p *bplistParser) parseUTF16StringAtOffset(off offset) string {
