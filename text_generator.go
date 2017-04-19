@@ -11,7 +11,7 @@ type textPlistGenerator struct {
 	writer io.Writer
 	format int
 
-	quotableTable *[4]uint64
+	quotableTable *characterSet
 
 	indent string
 	depth  int
@@ -49,7 +49,7 @@ func (p *textPlistGenerator) plistQuotedString(str string) string {
 			s += us
 		} else {
 			c := uint8(r)
-			if (*p.quotableTable)[c/64]&(1<<(c%64)) > 0 {
+			if p.quotableTable.ContainsByte(c) {
 				quot = true
 			}
 
