@@ -88,38 +88,127 @@ var textTestCases = []TestData{
 			OpenStepFormat: []byte(`(A,,,"",)`),
 		},
 	},
+	{
+		Name: "Empty Data",
+		Data: []byte{},
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte(`<>`),
+		},
+	},
+	{
+		Name: "UTF-8 with BOM",
+		Data: "Hello",
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte("\uFEFFHello"),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "UTF-16LE with BOM",
+		Data: "Hello",
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte{0xFF, 0xFE, 'H', 0, 'e', 0, 'l', 0, 'l', 0, 'o', 0},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "UTF-16BE with BOM",
+		Data: "Hello",
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte{0xFE, 0xFF, 0, 'H', 0, 'e', 0, 'l', 0, 'l', 0, 'o'},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "UTF-16LE without BOM",
+		Data: "Hello",
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte{'H', 0, 'e', 0, 'l', 0, 'l', 0, 'o', 0},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "UTF-16BE without BOM",
+		Data: "Hello",
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte{0, 'H', 0, 'e', 0, 'l', 0, 'l', 0, 'o'},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "UTF-16BE with High Characters",
+		Data: "Hello, 世界",
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte{0, '"', 0, 'H', 0, 'e', 0, 'l', 0, 'l', 0, 'o', 0, ',', 0, ' ', 0x4E, 0x16, 0x75, 0x4C, 0, '"'},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "Legacy Strings File Format (No Dictionary)",
+		Data: map[string]string{
+			"Key":  "Value",
+			"Key2": "Value2",
+		},
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte(`"Key" = "Value";
+			"Key2" = "Value2";`),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "Strings File Shortcut Format (No Values)",
+		Data: map[string]string{
+			"Key":  "Key",
+			"Key2": "Key2",
+		},
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte(`"Key";
+			"Key2";`),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "Data long enough to trigger implementation-specific reallocation", // this is for coverage :(
+		Data: []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
+		Expected: map[int][]byte{
+			OpenStepFormat: []byte("<0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001>"),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
 }
 
 func TestTextDecode(t *testing.T) {
 	for _, test := range textTestCases {
-		actual := test.Data
-		testData := reflect.ValueOf(actual)
-		if !testData.IsValid() || isEmptyInterface(testData) {
-			continue
-		}
-		if testData.Kind() == reflect.Ptr || testData.Kind() == reflect.Interface {
-			testData = testData.Elem()
-		}
-		actual = testData.Interface()
+		t.Run(test.Name, func(t *testing.T) {
+			actual := test.Data
+			testData := reflect.ValueOf(actual)
+			if !testData.IsValid() || isEmptyInterface(testData) {
+				return
+			}
+			if testData.Kind() == reflect.Ptr || testData.Kind() == reflect.Interface {
+				testData = testData.Elem()
+			}
+			actual = testData.Interface()
 
-		parsed := reflect.New(testData.Type()).Interface()
-		buf := bytes.NewReader(test.Expected[OpenStepFormat])
-		decoder := NewDecoder(buf)
-		err := decoder.Decode(parsed)
-		if err != nil {
-			t.Error(err.Error())
-		}
+			parsed := reflect.New(testData.Type()).Interface()
+			buf := bytes.NewReader(test.Expected[OpenStepFormat])
+			decoder := NewDecoder(buf)
+			err := decoder.Decode(parsed)
+			if err != nil {
+				t.Error(err.Error())
+			}
 
-		vt := reflect.ValueOf(parsed)
-		if vt.Kind() == reflect.Ptr || vt.Kind() == reflect.Interface {
-			vt = vt.Elem()
-			parsed = vt.Interface()
-		}
+			vt := reflect.ValueOf(parsed)
+			if vt.Kind() == reflect.Ptr || vt.Kind() == reflect.Interface {
+				vt = vt.Elem()
+				parsed = vt.Interface()
+			}
 
-		if !reflect.DeepEqual(actual, parsed) {
-			t.Logf("Expected: %#v", actual)
-			t.Logf("Received: %#v", parsed)
-			t.Fail()
-		}
+			if !reflect.DeepEqual(actual, parsed) {
+				t.Logf("Expected: %#v", actual)
+				t.Logf("Received: %#v", parsed)
+				t.Fail()
+			}
+		})
 	}
 }

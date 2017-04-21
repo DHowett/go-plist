@@ -5,40 +5,44 @@ import (
 	"testing"
 )
 
-var InvalidTextPlists = []string{
-	"(/",
-	"{/",
-	"<*I>",
-	"{0=(/",
-	"(((/",
-	"{0=/",
-	"{0=((/",
-	"/",
-	"{0=((((/",
-	"({/",
-	"(<*I5>,<*I5>,<*I5>,<*I5>,*I16777215>,<*I268435455>,<*I4294967295>,<*I18446744073709551615>,)",
-	"{0=(((/",
-	"(<*I>",
-	"<>",
-	"((((/",
-	"((/",
-	"(<>",
-	"{¬=A;}",  // that character should be in quotes for goth GNUStep and OpenStep
-	`{"A"A;}`, // there should be an = between "A" and A
-	`{"A"=A}`, // there should be a ; at the end of the dictionary
-	"<*F33>",  // invalid GNUstep type F
-	"<EQ>",    // invalid data that isn't hex
+var InvalidTextPlists = []struct {
+	Name string
+	Data string
+}{
+	{"Truncated array", "("},
+	{"Truncated dictionary", "{a=b;"},
+	{"Truncated dictionary 2", "{"},
+	{"Unclosed nested array", "{0=(/"},
+	{"Unclosed dictionary", "{0=/"},
+	{"Broken GNUStep data", "(<*I5>,<*I5>,<*I5>,<*I5>,*I16777215>,<*I268435455>,<*I4294967295>,<*I18446744073709551615>,)"},
+	{"Truncated nested array", "{0=(((/"},
+	{"Truncated dictionary with comment-like", "{/"},
+	{"Truncated array with comment-like", "(/"},
+	{"Truncated array with empty data", "(<>"},
+	{"Bad Extended Character", "{¬=A;}"},
+	{"Missing Equals in Dictionary", `{"A"A;}`},
+	{"Missing Semicolon in Dictionary", `{"A"=A}`},
+	{"Invalid GNUStep type", "<*F33>"},
+	{"Invalid GNUStep type data", "(<*I>"},
+	{"Invalid data", "<EQ>"},
+	{"Truncated unicode escape", `"\u231"`},
+	{"Truncated hex escape", `"\x2"`},
+	{"Truncated octal escape", `"\02"`},
+	{"Truncated data", `<33`},
+	{"Truncated block comment", `/* hello`},
 }
 
 func TestInvalidTextPlists(t *testing.T) {
-	for _, data := range InvalidTextPlists {
-		var obj interface{}
-		buf := strings.NewReader(data)
-		err := NewDecoder(buf).Decode(&obj)
-		if err == nil {
-			t.Fatal("invalid plist failed to throw error")
-		} else {
-			t.Log(err)
-		}
+	for _, test := range InvalidTextPlists {
+		t.Run(test.Name, func(t *testing.T) {
+			var obj interface{}
+			buf := strings.NewReader(test.Data)
+			err := NewDecoder(buf).Decode(&obj)
+			if err == nil {
+				t.Fatal("invalid plist failed to throw error")
+			} else {
+				t.Log(err)
+			}
+		})
 	}
 }
