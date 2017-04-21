@@ -25,62 +25,62 @@ func BenchmarkOpenStepEncode(b *testing.B) {
 }
 
 func TestEncode(t *testing.T) {
-	var failed bool
 	for _, test := range tests {
-		failed = false
-		t.Logf("Testing Encode (%s)", test.Name)
+		t.Run(test.Name, func(t *testing.T) {
+			failed := false
 
-		// A test that should render no output!
-		errors := make(map[int]error)
-		if test.ShouldFail && len(test.Expected) == 0 {
-			_, err := Marshal(test.Data, XMLFormat)
-			failed = failed || (test.ShouldFail && err == nil)
-		}
-
-		results := make(map[int][]byte)
-		for fmt, dat := range test.Expected {
-			if test.SkipEncode[fmt] {
-				continue
+			// A test that should render no output!
+			errors := make(map[int]error)
+			if test.ShouldFail && len(test.Expected) == 0 {
+				_, err := Marshal(test.Data, XMLFormat)
+				failed = failed || (test.ShouldFail && err == nil)
 			}
 
-			results[fmt], errors[fmt] = Marshal(test.Data, fmt)
-			failed = failed || (test.ShouldFail && errors[fmt] == nil)
-			failed = failed || !bytes.Equal(dat, results[fmt])
-		}
+			results := make(map[int][]byte)
+			for fmt, dat := range test.Expected {
+				if test.SkipEncode[fmt] {
+					continue
+				}
 
-		if failed {
-			t.Logf("Value: %#v", test.Data)
-			if test.ShouldFail {
-				t.Logf("Expected: Error")
-			} else {
+				results[fmt], errors[fmt] = Marshal(test.Data, fmt)
+				failed = failed || (test.ShouldFail && errors[fmt] == nil)
+				failed = failed || !bytes.Equal(dat, results[fmt])
+			}
+
+			if failed {
+				t.Logf("Value: %#v", test.Data)
+				if test.ShouldFail {
+					t.Logf("Expected: Error")
+				} else {
+					printype := "%s"
+					for fmt, dat := range test.Expected {
+						if fmt == BinaryFormat {
+							printype = "%2x"
+						} else {
+							printype = "%s"
+						}
+						t.Logf("Expected %s: "+printype+"\n", FormatNames[fmt], dat)
+					}
+				}
+
 				printype := "%s"
-				for fmt, dat := range test.Expected {
+				for fmt, dat := range results {
 					if fmt == BinaryFormat {
 						printype = "%2x"
 					} else {
 						printype = "%s"
 					}
-					t.Logf("Expected %s: "+printype+"\n", FormatNames[fmt], dat)
+					t.Logf("Received %s: "+printype+"\n", FormatNames[fmt], dat)
 				}
-			}
-
-			printype := "%s"
-			for fmt, dat := range results {
-				if fmt == BinaryFormat {
-					printype = "%2x"
-				} else {
-					printype = "%s"
+				for fmt, err := range errors {
+					if err != nil {
+						t.Logf("Error %s: %v\n", FormatNames[fmt], err)
+					}
 				}
-				t.Logf("Received %s: "+printype+"\n", FormatNames[fmt], dat)
+				t.Log("FAILED")
+				t.Fail()
 			}
-			for fmt, err := range errors {
-				if err != nil {
-					t.Logf("Error %s: %v\n", FormatNames[fmt], err)
-				}
-			}
-			t.Log("FAILED")
-			t.Fail()
-		}
+		})
 	}
 }
 
