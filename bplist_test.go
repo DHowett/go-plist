@@ -38,45 +38,35 @@ func TestBplistInt128(t *testing.T) {
 }
 
 func TestBplistLatin1ToUTF16(t *testing.T) {
-	sBuf := make([]byte, 2)
-	expected := []byte{0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xd1, 0x01, 0x02, 0x51, 0x5f, 0x61, 0x00, 0x80, 0x08, 0x0b, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10}
+	expectedPrefix := []byte{0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xd1, 0x01, 0x02, 0x51, 0x5f, 0x6f, 0x10, 0x80}
+	expectedPostfix := []byte{0x00, 0x08, 0x00, 0x0b, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x10}
+	expectedBuf := bytes.NewBuffer(expectedPrefix)
+
+	sBuf := &bytes.Buffer{}
+	for i := uint16(0xc280); i <= 0xc2bf; i++ {
+		binary.Write(sBuf, binary.BigEndian, i)
+		binary.Write(expectedBuf, binary.BigEndian, i-0xc200)
+	}
+
+	for i := uint16(0xc380); i <= 0xc3bf; i++ {
+		binary.Write(sBuf, binary.BigEndian, i)
+		binary.Write(expectedBuf, binary.BigEndian, i-0xc300+0x0040)
+	}
+
+	expectedBuf.Write(expectedPostfix)
 
 	var buf bytes.Buffer
 	encoder := NewBinaryEncoder(&buf)
 
-	for i := uint16(0xc280); i <= 0xc2bf; i++ {
-		binary.BigEndian.PutUint16(sBuf, i)
-		data := map[string]string{
-			"_": string(sBuf),
-		}
-		expected[15] = sBuf[1]
-
-		buf.Reset()
-		if err := encoder.Encode(data); err != nil {
-			t.Error(err.Error())
-		}
-
-		if !bytes.Equal(buf.Bytes(), expected) {
-			t.Errorf("Expected", expected, "received", buf.Bytes())
-			return
-		}
+	data := map[string]string{
+		"_": string(sBuf.Bytes()),
+	}
+	if err := encoder.Encode(data); err != nil {
+		t.Error(err.Error())
 	}
 
-	for i := uint16(0xc380); i <= 0xc3bf; i++ {
-		binary.BigEndian.PutUint16(sBuf, i)
-		data := map[string]string{
-			"_": string(sBuf),
-		}
-		expected[15] = sBuf[1] + 0x40
-
-		buf.Reset()
-		if err := encoder.Encode(data); err != nil {
-			t.Error(err.Error())
-		}
-
-		if !bytes.Equal(buf.Bytes(), expected) {
-			t.Errorf("Expected", expected, "received", buf.Bytes())
-			return
-		}
+	if !bytes.Equal(buf.Bytes(), expectedBuf.Bytes()) {
+		t.Errorf("Expected", expectedBuf.Bytes(), "received", buf.Bytes())
+		return
 	}
 }
