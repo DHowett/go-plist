@@ -2,6 +2,7 @@ package plist
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io/ioutil"
 	"testing"
 )
@@ -33,5 +34,39 @@ func TestBplistInt128(t *testing.T) {
 	pval, _ := d.parseDocument()
 	if pinteger, ok := pval.(*cfNumber); !ok || pinteger.value != expected {
 		t.Error("Expected", expected, "received", pval)
+	}
+}
+
+func TestBplistLatin1ToUTF16(t *testing.T) {
+	expectedPrefix := []byte{0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xd1, 0x01, 0x02, 0x51, 0x5f, 0x6f, 0x10, 0x80}
+	expectedPostfix := []byte{0x00, 0x08, 0x00, 0x0b, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x10}
+	expectedBuf := bytes.NewBuffer(expectedPrefix)
+
+	sBuf := &bytes.Buffer{}
+	for i := uint16(0xc280); i <= 0xc2bf; i++ {
+		binary.Write(sBuf, binary.BigEndian, i)
+		binary.Write(expectedBuf, binary.BigEndian, i-0xc200)
+	}
+
+	for i := uint16(0xc380); i <= 0xc3bf; i++ {
+		binary.Write(sBuf, binary.BigEndian, i)
+		binary.Write(expectedBuf, binary.BigEndian, i-0xc300+0x0040)
+	}
+
+	expectedBuf.Write(expectedPostfix)
+
+	var buf bytes.Buffer
+	encoder := NewBinaryEncoder(&buf)
+
+	data := map[string]string{
+		"_": string(sBuf.Bytes()),
+	}
+	if err := encoder.Encode(data); err != nil {
+		t.Error(err.Error())
+	}
+
+	if !bytes.Equal(buf.Bytes(), expectedBuf.Bytes()) {
+		t.Errorf("Expected", expectedBuf.Bytes(), "received", buf.Bytes())
+		return
 	}
 }

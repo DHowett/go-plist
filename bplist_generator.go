@@ -227,7 +227,7 @@ func (p *bplistGenerator) writeDataTag(data []byte) {
 
 func (p *bplistGenerator) writeStringTag(str string) {
 	for _, r := range str {
-		if r > 0xFF {
+		if r > 0x7F {
 			utf16Runes := utf16.Encode([]rune(str))
 			p.writeCountedTag(bpTagUTF16String, uint64(len(utf16Runes)))
 			binary.Write(p.writer, binary.BigEndian, utf16Runes)
