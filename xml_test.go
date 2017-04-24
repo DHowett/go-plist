@@ -27,6 +27,7 @@ func BenchmarkXMLParse(b *testing.B) {
 
 func TestVariousIllegalXMLPlists(t *testing.T) {
 	plists := []string{
+		`<plist version="1.0"><integer>0x</integer></plist>`,
 		"<plist><doct><key>helo</key><string></string></doct></plist>",
 		"<plist><dict><string>helo</string></dict></plist>",
 		"<plist><dict><key>helo</key></dict></plist>",

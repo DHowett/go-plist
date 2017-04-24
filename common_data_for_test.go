@@ -8,13 +8,12 @@ import (
 )
 
 type TestData struct {
-	Name       string
-	Data       interface{}
-	DecodeData interface{}
-	Expected   map[int][]byte
-	ShouldFail bool
-	SkipDecode map[int]bool
-	SkipEncode map[int]bool
+	Name        string
+	Value       interface{}
+	DecodeValue interface{} // used when the document cannot encode parts of Value
+	Documents   map[int][]byte
+	SkipDecode  map[int]bool
+	SkipEncode  map[int]bool
 }
 
 type SparseBundleHeader struct {
@@ -151,14 +150,9 @@ var xmlPreamble = `<?xml version="1.0" encoding="UTF-8"?>
 
 var tests = []TestData{
 	{
-		Name:       "Nil",
-		Data:       nil,
-		ShouldFail: true,
-	},
-	{
-		Name: "String",
-		Data: "Hello",
-		Expected: map[int][]byte{
+		Name:  "String",
+		Value: "Hello",
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`Hello`),
 			GNUStepFormat:  []byte(`Hello`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><string>Hello</string></plist>`),
@@ -167,12 +161,12 @@ var tests = []TestData{
 	},
 	{
 		Name: "Basic Structure",
-		Data: struct {
+		Value: struct {
 			Name string
 		}{
 			Name: "Dustin",
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`{Name=Dustin;}`),
 			GNUStepFormat:  []byte(`{Name=Dustin;}`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string></dict></plist>`),
@@ -181,20 +175,20 @@ var tests = []TestData{
 	},
 	{
 		Name: "Basic Structure with non-exported fields",
-		Data: struct {
+		Value: struct {
 			Name string
 			age  int
 		}{
 			Name: "Dustin",
 			age:  24,
 		},
-		DecodeData: struct {
+		DecodeValue: struct {
 			Name string
 			age  int
 		}{
 			Name: "Dustin",
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`{Name=Dustin;}`),
 			GNUStepFormat:  []byte(`{Name=Dustin;}`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string></dict></plist>`),
@@ -203,20 +197,20 @@ var tests = []TestData{
 	},
 	{
 		Name: "Basic Structure with omitted fields",
-		Data: struct {
+		Value: struct {
 			Name string
 			Age  int `plist:"-"`
 		}{
 			Name: "Dustin",
 			Age:  24,
 		},
-		DecodeData: struct {
+		DecodeValue: struct {
 			Name string
 			Age  int `plist:"-"`
 		}{
 			Name: "Dustin",
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`{Name=Dustin;}`),
 			GNUStepFormat:  []byte(`{Name=Dustin;}`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string></dict></plist>`),
@@ -225,7 +219,7 @@ var tests = []TestData{
 	},
 	{
 		Name: "Basic Structure with empty omitempty fields",
-		Data: struct {
+		Value: struct {
 			Name      string
 			Age       int     `plist:"age,omitempty"`
 			Slice     []int   `plist:",omitempty"`
@@ -239,7 +233,7 @@ var tests = []TestData{
 			Name:     "Dustin",
 			Notempty: 10,
 		},
-		DecodeData: struct {
+		DecodeValue: struct {
 			Name      string
 			Age       int     `plist:"age,omitempty"`
 			Slice     []int   `plist:",omitempty"`
@@ -253,7 +247,7 @@ var tests = []TestData{
 			Name:     "Dustin",
 			Notempty: 10,
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`{Name=Dustin;Notempty=10;}`),
 			GNUStepFormat:  []byte(`{Name=Dustin;Notempty=<*I10>;}`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key>Name</key><string>Dustin</string><key>Notempty</key><integer>10</integer></dict></plist>`),
@@ -262,7 +256,7 @@ var tests = []TestData{
 	},
 	{
 		Name: "Structure with Anonymous Embeds",
-		Data: EmbedA{
+		Value: EmbedA{
 			EmbedC: EmbedC{
 				FieldA1: "",
 				FieldA2: "",
@@ -280,7 +274,7 @@ var tests = []TestData{
 			},
 			FieldA: "A.A",
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`{EmbedB={FieldA="A.B.C.A1";FieldA2="A.B.C.A2";FieldB="A.B.B";FieldC="A.B.C.C";};FieldA="A.A";FieldA2="";FieldB="A.C.B";FieldC="A.C.C";}`),
 			GNUStepFormat:  []byte(`{EmbedB={FieldA=A.B.C.A1;FieldA2=A.B.C.A2;FieldB=A.B.B;FieldC=A.B.C.C;};FieldA=A.A;FieldA2="";FieldB=A.C.B;FieldC=A.C.C;}`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key>EmbedB</key><dict><key>FieldA</key><string>A.B.C.A1</string><key>FieldA2</key><string>A.B.C.A2</string><key>FieldB</key><string>A.B.B</string><key>FieldC</key><string>A.B.C.C</string></dict><key>FieldA</key><string>A.A</string><key>FieldA2</key><string></string><key>FieldB</key><string>A.C.B</string><key>FieldC</key><string>A.C.C</string></dict></plist>`),
@@ -288,9 +282,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "Arbitrary Byte Data",
-		Data: []byte{'h', 'e', 'l', 'l', 'o'},
-		Expected: map[int][]byte{
+		Name:  "Arbitrary Byte Data",
+		Value: []byte{'h', 'e', 'l', 'l', 'o'},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`<68656c6c 6f>`),
 			GNUStepFormat:  []byte(`<68656c6c 6f>`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><data>aGVsbG8=</data></plist>`),
@@ -298,9 +292,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "Arbitrary Integer Slice",
-		Data: []int{'h', 'e', 'l', 'l', 'o'},
-		Expected: map[int][]byte{
+		Name:  "Arbitrary Integer Slice",
+		Value: []int{'h', 'e', 'l', 'l', 'o'},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`(104,101,108,108,111,)`),
 			GNUStepFormat:  []byte(`(<*I104>,<*I101>,<*I108>,<*I108>,<*I111>,)`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><array><integer>104</integer><integer>101</integer><integer>108</integer><integer>108</integer><integer>111</integer></array></plist>`),
@@ -308,9 +302,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "Arbitrary Integer Array",
-		Data: [3]int{'h', 'i', '!'},
-		Expected: map[int][]byte{
+		Name:  "Arbitrary Integer Array",
+		Value: [3]int{'h', 'i', '!'},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`(104,105,33,)`),
 			GNUStepFormat:  []byte(`(<*I104>,<*I105>,<*I33>,)`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><array><integer>104</integer><integer>105</integer><integer>33</integer></array></plist>`),
@@ -318,9 +312,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "Unsigned Integers of Increasing Size",
-		Data: []uint64{0xff, 0xfff, 0xffff, 0xfffff, 0xffffff, 0xfffffff, 0xffffffff, 0xffffffffffffffff},
-		Expected: map[int][]byte{
+		Name:  "Unsigned Integers of Increasing Size",
+		Value: []uint64{0xff, 0xfff, 0xffff, 0xfffff, 0xffffff, 0xfffffff, 0xffffffff, 0xffffffffffffffff},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`(255,4095,65535,1048575,16777215,268435455,4294967295,18446744073709551615,)`),
 			GNUStepFormat:  []byte(`(<*I255>,<*I4095>,<*I65535>,<*I1048575>,<*I16777215>,<*I268435455>,<*I4294967295>,<*I18446744073709551615>,)`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><array><integer>255</integer><integer>4095</integer><integer>65535</integer><integer>1048575</integer><integer>16777215</integer><integer>268435455</integer><integer>4294967295</integer><integer>18446744073709551615</integer></array></plist>`),
@@ -328,34 +322,25 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "Hexadecimal Integers",
-		Data: []int{'h', 'e', 'x', 'i', 'n', 't', -42},
-		Expected: map[int][]byte{
+		Name:  "Hexadecimal Integers",
+		Value: []int{'h', 'e', 'x', 'i', 'n', 't', -42},
+		Documents: map[int][]byte{
 			XMLFormat: []byte(xmlPreamble + `<plist version="1.0"><array><integer>0x68</integer><integer>0X65</integer><integer>0x78</integer><integer>0X69</integer><integer>0x6e</integer><integer>0X74</integer><integer>-0x2a</integer></array></plist>`),
 		},
 		SkipEncode: map[int]bool{XMLFormat: true},
 	},
 	{
-		Name: "Octal Integers (treated as Decimal)",
-		Data: []int{'o', 'c', 't', 'i', 'n', 't', -42},
-		Expected: map[int][]byte{
+		Name:  "Octal Integers (treated as Decimal)",
+		Value: []int{'o', 'c', 't', 'i', 'n', 't', -42},
+		Documents: map[int][]byte{
 			XMLFormat: []byte(xmlPreamble + `<plist version="1.0"><array><integer>0111</integer><integer>099</integer><integer>0116</integer><integer>0105</integer><integer>0110</integer><integer>0116</integer><integer>-042</integer></array></plist>`),
 		},
 		SkipEncode: map[int]bool{XMLFormat: true},
 	},
 	{
-		Name: "Partial hexadecimal Integer",
-		Data: []int{},
-		Expected: map[int][]byte{
-			XMLFormat: []byte(xmlPreamble + `<plist version="1.0"><integer>0x</integer></plist>`),
-		},
-		ShouldFail: true,
-		SkipEncode: map[int]bool{XMLFormat: true},
-	},
-	{
-		Name: "Floats of Increasing Bitness",
-		Data: []interface{}{float32(math.MaxFloat32), float64(math.MaxFloat64)},
-		Expected: map[int][]byte{
+		Name:  "Floats of Increasing Bitness",
+		Value: []interface{}{float32(math.MaxFloat32), float64(math.MaxFloat64)},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`(3.4028234663852886e+38,1.7976931348623157e+308,)`),
 			GNUStepFormat:  []byte(`(<*R3.4028234663852886e+38>,<*R1.7976931348623157e+308>,)`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><array><real>3.4028234663852886e+38</real><real>1.7976931348623157e+308</real></array></plist>`),
@@ -365,9 +350,9 @@ var tests = []TestData{
 		SkipDecode: map[int]bool{XMLFormat: true, OpenStepFormat: true, GNUStepFormat: true},
 	},
 	{
-		Name: "Boolean True",
-		Data: true,
-		Expected: map[int][]byte{
+		Name:  "Boolean True",
+		Value: true,
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`1`),
 			GNUStepFormat:  []byte(`<*BY>`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><true></true></plist>`),
@@ -375,9 +360,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "Floating-Point Value",
-		Data: 3.14159265358979323846264338327950288,
-		Expected: map[int][]byte{
+		Name:  "Floating-Point Value",
+		Value: 3.14159265358979323846264338327950288,
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`3.141592653589793`),
 			GNUStepFormat:  []byte(`<*R3.141592653589793>`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><real>3.141592653589793</real></plist>`),
@@ -386,11 +371,11 @@ var tests = []TestData{
 	},
 	{
 		Name: "Map (containing arbitrary types)",
-		Data: map[string]interface{}{
+		Value: map[string]interface{}{
 			"float":  1.0,
 			"uint64": uint64(1),
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`{float=1;uint64=1;}`),
 			GNUStepFormat:  []byte(`{float=<*R1>;uint64=<*I1>;}`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key>float</key><real>1</real><key>uint64</key><integer>1</integer></dict></plist>`),
@@ -401,7 +386,7 @@ var tests = []TestData{
 	},
 	{
 		Name: "Map (containing all variations of all types)",
-		Data: interface{}(map[string]interface{}{
+		Value: interface{}(map[string]interface{}{
 			"intarray": []interface{}{
 				int(1),
 				int8(8),
@@ -429,7 +414,7 @@ var tests = []TestData{
 			"data": []byte{1, 2, 3, 4},
 			"date": time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC),
 		}),
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`{booleans=(1,0,);data=<01020304>;date="2013-11-27 00:34:00 +0000";floats=(32,64,);intarray=(1,8,16,32,64,2,9,17,33,65,);strings=("Hello, ASCII","Hello, \U4e16\U754c",);}`),
 			GNUStepFormat:  []byte(`{booleans=(<*BY>,<*BN>,);data=<01020304>;date=<*D2013-11-27 00:34:00 +0000>;floats=(<*R32>,<*R64>,);intarray=(<*I1>,<*I8>,<*I16>,<*I32>,<*I64>,<*I2>,<*I9>,<*I17>,<*I33>,<*I65>,);strings=("Hello, ASCII","Hello, \U4e16\U754c",);}`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key>booleans</key><array><true></true><false></false></array><key>data</key><data>AQIDBA==</data><key>date</key><date>2013-11-27T00:34:00Z</date><key>floats</key><array><real>32</real><real>64</real></array><key>intarray</key><array><integer>1</integer><integer>8</integer><integer>16</integer><integer>32</integer><integer>64</integer><integer>2</integer><integer>9</integer><integer>17</integer><integer>33</integer><integer>65</integer></array><key>strings</key><array><string>Hello, ASCII</string><string>Hello, 世界</string></array></dict></plist>`),
@@ -439,16 +424,16 @@ var tests = []TestData{
 	},
 	{
 		Name: "Map (containing nil)",
-		Data: map[string]interface{}{
+		Value: map[string]interface{}{
 			"float":  1.5,
 			"uint64": uint64(1),
 			"nil":    nil,
 		},
-		DecodeData: map[string]interface{}{
+		DecodeValue: map[string]interface{}{
 			"float":  1.5,
 			"uint64": uint64(1),
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`{float=1.5;uint64=1;}`),
 			GNUStepFormat:  []byte(`{float=<*R1.5>;uint64=<*I1>;}`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key>float</key><real>1.5</real><key>uint64</key><integer>1</integer></dict></plist>`),
@@ -458,21 +443,15 @@ var tests = []TestData{
 		SkipDecode: map[int]bool{OpenStepFormat: true},
 	},
 	{
-		Name:       "Map (integer keys) (expected to fail)",
-		Data:       map[int]string{1: "hi"},
-		ShouldFail: true,
-		// No types to decode, no need to add skips
-	},
-	{
 		Name: "Pointer to structure with plist tags",
-		Data: &SparseBundleHeader{
+		Value: &SparseBundleHeader{
 			InfoDictionaryVersion: "6.0",
 			BandSize:              8388608,
 			Size:                  4 * 1048576 * 1024 * 1024,
 			DiskImageBundleType:   "com.apple.diskimage.sparsebundle",
 			BackingStoreVersion:   1,
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`{CFBundleInfoDictionaryVersion="6.0";"band-size"=8388608;"bundle-backingstore-version"=1;"diskimage-bundle-type"="com.apple.diskimage.sparsebundle";size=4398046511104;}`),
 			GNUStepFormat:  []byte(`{CFBundleInfoDictionaryVersion=6.0;band-size=<*I8388608>;bundle-backingstore-version=<*I1>;diskimage-bundle-type=com.apple.diskimage.sparsebundle;size=<*I4398046511104>;}`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key>CFBundleInfoDictionaryVersion</key><string>6.0</string><key>band-size</key><integer>8388608</integer><key>bundle-backingstore-version</key><integer>1</integer><key>diskimage-bundle-type</key><string>com.apple.diskimage.sparsebundle</string><key>size</key><integer>4398046511104</integer></dict></plist>`),
@@ -482,11 +461,11 @@ var tests = []TestData{
 	},
 	{
 		Name: "Array of byte arrays",
-		Data: [][]byte{
+		Value: [][]byte{
 			[]byte("Hello"),
 			[]byte("World"),
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`(<48656c6c 6f>,<576f726c 64>,)`),
 			GNUStepFormat:  []byte(`(<48656c6c 6f>,<576f726c 64>,)`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><array><data>SGVsbG8=</data><data>V29ybGQ=</data></array></plist>`),
@@ -494,9 +473,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "Date",
-		Data: time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC),
-		Expected: map[int][]byte{
+		Name:  "Date",
+		Value: time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC),
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`"2013-11-27 00:34:00 +0000"`),
 			GNUStepFormat:  []byte(`<*D2013-11-27 00:34:00 +0000>`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><date>2013-11-27T00:34:00Z</date></plist>`),
@@ -504,9 +483,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "Floating-Point NaN",
-		Data: math.NaN(),
-		Expected: map[int][]byte{
+		Name:  "Floating-Point NaN",
+		Value: math.NaN(),
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`NaN`),
 			GNUStepFormat:  []byte(`<*RNaN>`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><real>nan</real></plist>`),
@@ -515,9 +494,9 @@ var tests = []TestData{
 		SkipDecode: map[int]bool{OpenStepFormat: true, GNUStepFormat: true, XMLFormat: true, BinaryFormat: true},
 	},
 	{
-		Name: "Floating-Point Infinity",
-		Data: math.Inf(1),
-		Expected: map[int][]byte{
+		Name:  "Floating-Point Infinity",
+		Value: math.Inf(1),
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`+Inf`),
 			GNUStepFormat:  []byte(`<*R+Inf>`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><real>inf</real></plist>`),
@@ -525,9 +504,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "Floating-Point Negative Infinity",
-		Data: math.Inf(-1),
-		Expected: map[int][]byte{
+		Name:  "Floating-Point Negative Infinity",
+		Value: math.Inf(-1),
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`-Inf`),
 			GNUStepFormat:  []byte(`<*R-Inf>`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><real>-inf</real></plist>`),
@@ -535,9 +514,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "UTF-8 string",
-		Data: []string{"Hello, ASCII", "Hello, 世界"},
-		Expected: map[int][]byte{
+		Name:  "UTF-8 string",
+		Value: []string{"Hello, ASCII", "Hello, 世界"},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`("Hello, ASCII","Hello, \U4e16\U754c",)`),
 			GNUStepFormat:  []byte(`("Hello, ASCII","Hello, \U4e16\U754c",)`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><array><string>Hello, ASCII</string><string>Hello, 世界</string></array></plist>`),
@@ -545,9 +524,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "An array containing more than fifteen items",
-		Data: []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
-		Expected: map[int][]byte{
+		Name:  "An array containing more than fifteen items",
+		Value: []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,)`),
 			GNUStepFormat:  []byte(`(<*I1>,<*I2>,<*I3>,<*I4>,<*I5>,<*I6>,<*I7>,<*I8>,<*I9>,<*I10>,<*I11>,<*I12>,<*I13>,<*I14>,<*I15>,<*I16>,)`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><array><integer>1</integer><integer>2</integer><integer>3</integer><integer>4</integer><integer>5</integer><integer>6</integer><integer>7</integer><integer>8</integer><integer>9</integer><integer>10</integer><integer>11</integer><integer>12</integer><integer>13</integer><integer>14</integer><integer>15</integer><integer>16</integer></array></plist>`),
@@ -555,9 +534,9 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name: "TextMarshaler/TextUnmarshaler",
-		Data: TextMarshalingBool{true},
-		Expected: map[int][]byte{
+		Name:  "TextMarshaler/TextUnmarshaler",
+		Value: TextMarshalingBool{true},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`truthful`),
 			GNUStepFormat:  []byte(`truthful`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><string>truthful</string></plist>`),
@@ -566,19 +545,19 @@ var tests = []TestData{
 		// We expect false here because the non-pointer version cannot mutate itself.
 	},
 	{
-		Name: "TextMarshaler/TextUnmarshaler via Pointer",
-		Data: &TextMarshalingBoolViaPointer{false},
-		Expected: map[int][]byte{
+		Name:  "TextMarshaler/TextUnmarshaler via Pointer",
+		Value: &TextMarshalingBoolViaPointer{false},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`unimaginable`),
 			GNUStepFormat:  []byte(`unimaginable`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><string>unimaginable</string></plist>`),
 			BinaryFormat:   []byte{98, 112, 108, 105, 115, 116, 48, 48, 92, 117, 110, 105, 109, 97, 103, 105, 110, 97, 98, 108, 101, 8, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21},
 		},
-		DecodeData: TextMarshalingBoolViaPointer{false},
+		DecodeValue: TextMarshalingBoolViaPointer{false},
 	},
 	{
 		Name: "Duplicated Values",
-		Data: []interface{}{
+		Value: []interface{}{
 			"Hello",
 			float32(32.0),
 			float64(32.0),
@@ -596,13 +575,13 @@ var tests = []TestData{
 			uint64(100),
 			time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC),
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			BinaryFormat: []byte{0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xaf, 0x10, 0x10, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x2, 0x8, 0x3, 0x5, 0x6, 0x1, 0x4, 0x7, 0x8, 0x55, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x22, 0x42, 0x0, 0x0, 0x0, 0x23, 0x40, 0x40, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x44, 0x64, 0x61, 0x74, 0x61, 0x22, 0x42, 0x80, 0x0, 0x0, 0x23, 0x40, 0x50, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x10, 0x64, 0x33, 0x41, 0xb8, 0x45, 0x75, 0x78, 0x0, 0x0, 0x0, 0x8, 0x1b, 0x21, 0x26, 0x2f, 0x34, 0x39, 0x42, 0x44, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x4d},
 		},
 	},
 	{
 		Name: "Funny Characters",
-		Data: map[string]string{
+		Value: map[string]string{
 			"\a":     "\b",
 			"\v":     "\f",
 			"\\":     "\"",
@@ -610,16 +589,16 @@ var tests = []TestData{
 			"\u00C8": "wat",
 			"\u0100": "hundred",
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			// Hard to encode these in a raw string ;P
 			OpenStepFormat: []byte{0x7b, 0x22, 0x5c, 0x61, 0x22, 0x3d, 0x22, 0x5c, 0x62, 0x22, 0x3b, 0x22, 0x9, 0xd, 0x22, 0x3d, 0x22, 0xa, 0x22, 0x3b, 0x22, 0x5c, 0x76, 0x22, 0x3d, 0x22, 0x5c, 0x66, 0x22, 0x3b, 0x22, 0x5c, 0x5c, 0x22, 0x3d, 0x22, 0x5c, 0x22, 0x22, 0x3b, 0x22, 0x5c, 0x33, 0x31, 0x30, 0x22, 0x3d, 0x77, 0x61, 0x74, 0x3b, 0x22, 0x5c, 0x55, 0x30, 0x31, 0x30, 0x30, 0x22, 0x3d, 0x68, 0x75, 0x6e, 0x64, 0x72, 0x65, 0x64, 0x3b, 0x7d},
 			GNUStepFormat:  []byte{0x7b, 0x22, 0x5c, 0x61, 0x22, 0x3d, 0x22, 0x5c, 0x62, 0x22, 0x3b, 0x22, 0x9, 0xd, 0x22, 0x3d, 0x22, 0xa, 0x22, 0x3b, 0x22, 0x5c, 0x76, 0x22, 0x3d, 0x22, 0x5c, 0x66, 0x22, 0x3b, 0x22, 0x5c, 0x5c, 0x22, 0x3d, 0x22, 0x5c, 0x22, 0x22, 0x3b, 0x22, 0x5c, 0x33, 0x31, 0x30, 0x22, 0x3d, 0x77, 0x61, 0x74, 0x3b, 0x22, 0x5c, 0x55, 0x30, 0x31, 0x30, 0x30, 0x22, 0x3d, 0x68, 0x75, 0x6e, 0x64, 0x72, 0x65, 0x64, 0x3b, 0x7d},
 		},
 	},
 	{
-		Name: "Signed Integers",
-		Data: []int64{-1, -127, -255, -32767, -65535},
-		Expected: map[int][]byte{
+		Name:  "Signed Integers",
+		Value: []int64{-1, -127, -255, -32767, -65535},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`(-1,-127,-255,-32767,-65535,)`),
 			GNUStepFormat:  []byte(`(<*I-1>,<*I-127>,<*I-255>,<*I-32767>,<*I-65535>,)`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><array><integer>-1</integer><integer>-127</integer><integer>-255</integer><integer>-32767</integer><integer>-65535</integer></array></plist>`),
@@ -627,21 +606,11 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name:       "A Channel",
-		Data:       make(chan int),
-		ShouldFail: true,
-	},
-	{
-		Name:       "A Function",
-		Data:       func() {},
-		ShouldFail: true,
-	},
-	{
 		Name: "A map with a blank key",
-		Data: map[string]string{
+		Value: map[string]string{
 			"": "Hello",
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`{""=Hello;}`),
 			GNUStepFormat:  []byte(`{""=Hello;}`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><dict><key></key><string>Hello</string></dict></plist>`),
@@ -650,42 +619,42 @@ var tests = []TestData{
 	},
 	{
 		Name: "CF Keyed Archiver UIDs (interface{})",
-		Data: []UID{
+		Value: []UID{
 			0xff,
 			0xffff,
 			0xffffff,
 			0xffffffff,
 			0xffffffffff,
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			XMLFormat:    []byte(xmlPreamble + `<plist version="1.0"><array><dict><key>CF$UID</key><integer>255</integer></dict><dict><key>CF$UID</key><integer>65535</integer></dict><dict><key>CF$UID</key><integer>16777215</integer></dict><dict><key>CF$UID</key><integer>4294967295</integer></dict><dict><key>CF$UID</key><integer>1099511627775</integer></dict></array></plist>`),
 			BinaryFormat: []byte{0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xa5, 0x01, 0x02, 0x03, 0x04, 0x05, 0x80, 0xff, 0x81, 0xff, 0xff, 0x83, 0x00, 0xff, 0xff, 0xff, 0x83, 0xff, 0xff, 0xff, 0xff, 0x87, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0x08, 0x0e, 0x10, 0x13, 0x18, 0x1d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x26},
 		},
 	},
 	{
 		Name: "CF Keyed Archiver UID (struct)",
-		Data: struct {
+		Value: struct {
 			U UID `plist:"identifier"`
 		}{
 			U: 1024,
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			XMLFormat:    []byte(xmlPreamble + `<plist version="1.0"><dict><key>identifier</key><dict><key>CF$UID</key><integer>1024</integer></dict></dict></plist>`),
 			BinaryFormat: []byte{0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xd1, 0x01, 0x02, 0x5a, 0x69, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x66, 0x69, 0x65, 0x72, 0x81, 0x04, 0x00, 0x08, 0x0b, 0x16, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x19},
 		},
 	},
 	{
 		Name: "CF Keyed Archiver UID as Legacy Int",
-		Data: struct {
+		Value: struct {
 			U UID `plist:"identifier"`
 		}{
 			U: 1024,
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			XMLFormat:    []byte(xmlPreamble + `<plist version="1.0"><dict><key>identifier</key><dict><key>CF$UID</key><integer>1024</integer></dict></dict></plist>`),
 			BinaryFormat: []byte{0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xd1, 0x01, 0x02, 0x5a, 0x69, 0x64, 0x65, 0x6e, 0x74, 0x69, 0x66, 0x69, 0x65, 0x72, 0x81, 0x04, 0x00, 0x08, 0x0b, 0x16, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x19},
 		},
-		DecodeData: struct {
+		DecodeValue: struct {
 			U uint64 `plist:"identifier"`
 		}{
 			U: 1024,
@@ -693,36 +662,209 @@ var tests = []TestData{
 	},
 	{
 		Name: "Custom Marshaller/Unmarshaller by Value",
-		Data: []ArrayThatSerializesAsOneObject{
+		Value: []ArrayThatSerializesAsOneObject{
 			ArrayThatSerializesAsOneObject{[]uint64{100}},
 			ArrayThatSerializesAsOneObject{[]uint64{2, 4, 6, 8}},
 		},
-		Expected: map[int][]byte{
+		Documents: map[int][]byte{
 			GNUStepFormat: []byte(`(<*I100>,(<*I2>,<*I4>,<*I6>,<*I8>,),)`),
 		},
 	},
 	{
-		Name: "Custom Marshaller/Unmarshaller by Pointer",
-		Data: &PlistMarshalingBoolByPointer{true},
-		Expected: map[int][]byte{
+		Name:  "Custom Marshaller/Unmarshaller by Pointer",
+		Value: &PlistMarshalingBoolByPointer{true},
+		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`-1`),
 			GNUStepFormat:  []byte(`<*I-1>`),
 		},
 	},
 	{
-		Name: "Type implementing both Text and Plist Marshaler",
-		Data: &BothMarshaler{},
-		Expected: map[int][]byte{
+		Name:  "Type implementing both Text and Plist Marshaler",
+		Value: &BothMarshaler{},
+		Documents: map[int][]byte{
 			GNUStepFormat: []byte(`{a=b;}`),
 		},
 	},
 	{
-		Name: "Type implementing both Text and Plist Unmarshaler",
-		Data: &BothUnmarshaler{int64(1024)},
-		Expected: map[int][]byte{
+		Name:  "Type implementing both Text and Plist Unmarshaler",
+		Value: &BothUnmarshaler{int64(1024)},
+		Documents: map[int][]byte{
 			GNUStepFormat: []byte(`{blah=<*I1024>;}`),
 		},
-		DecodeData: &BothUnmarshaler{int64(0)},
+		DecodeValue: &BothUnmarshaler{int64(0)},
+	},
+	{
+		Name: "Comments",
+		Value: struct {
+			A, B, C int
+			S, S2   string
+		}{
+			1, 2, 3,
+			"/not/a/comment/", "/not*a/*comm*en/t",
+		},
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte(`{
+				A=1 /* A is 1 because it is the first letter */;
+				B=2; // B is 2 because comment-to-end-of-line.
+				C=3;
+				S = /not/a/comment/;
+				S2 = /not*a/*comm*en/t;
+			}`),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "Escapes",
+		Value: struct {
+			W, A, B, V, F, T, R, N, Hex1, Unicode1, Unicode2, Octal1 string
+		}{
+			"w", "\a", "\b", "\v", "\f", "\t", "\r", "\n", "\u00ab", "\u00ac", "\u00ad", "\033",
+		},
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte(`{
+				W="\w";
+				A="\a";
+				B="\b";
+				V="\v";
+				F="\f";
+				T="\t";
+				R="\r";
+				N="\n";
+				Hex1="\xAB";
+				Unicode1="\u00AC";
+				Unicode2="\U00AD";
+				Octal1="\033";
+			}`),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "Empty Strings in Arrays",
+		Value: []string{"A"},
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte(`(A,,,"",)`),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "Empty Data",
+		Value: []byte{},
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte(`<>`),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "UTF-8 with BOM",
+		Value: "Hello",
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte("\uFEFFHello"),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "UTF-16LE with BOM",
+		Value: "Hello",
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte{0xFF, 0xFE, 'H', 0, 'e', 0, 'l', 0, 'l', 0, 'o', 0},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "UTF-16BE with BOM",
+		Value: "Hello",
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte{0xFE, 0xFF, 0, 'H', 0, 'e', 0, 'l', 0, 'l', 0, 'o'},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "UTF-16LE without BOM",
+		Value: "Hello",
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte{'H', 0, 'e', 0, 'l', 0, 'l', 0, 'o', 0},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "UTF-16BE without BOM",
+		Value: "Hello",
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte{0, 'H', 0, 'e', 0, 'l', 0, 'l', 0, 'o'},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "UTF-16BE with High Characters",
+		Value: "Hello, 世界",
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte{0, '"', 0, 'H', 0, 'e', 0, 'l', 0, 'l', 0, 'o', 0, ',', 0, ' ', 0x4E, 0x16, 0x75, 0x4C, 0, '"'},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "Legacy Strings File Format (No Dictionary)",
+		Value: map[string]string{
+			"Key":  "Value",
+			"Key2": "Value2",
+		},
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte(`"Key" = "Value";
+			"Key2" = "Value2";`),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name: "Strings File Shortcut Format (No Values)",
+		Value: map[string]string{
+			"Key":  "Key",
+			"Key2": "Key2",
+		},
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte(`"Key";
+			"Key2";`),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "Various Truncated Escapes",
+		Value: "\x01\x02\x03\x04\x057",
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte(`"\x1\u02\U003\4\0057"`),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "Various Case-Insensitive Escapes",
+		Value: "\u00AB\uCDEF",
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte(`"\xaB\uCdEf"`),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "Text data long enough to trigger implementation-specific reallocation", // this is for coverage :(
+		Value: []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte("<0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001>"),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "Empty Text Document",
+		Value: map[string]interface{}{}, // Defined to be an empty dictionary
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte{},
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
+	},
+	{
+		Name:  "Text document consisting of only whitespace",
+		Value: map[string]interface{}{}, // Defined to be an empty dictionary
+		Documents: map[int][]byte{
+			OpenStepFormat: []byte(" \n\t"),
+		},
+		SkipEncode: map[int]bool{OpenStepFormat: true},
 	},
 }
 

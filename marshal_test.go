@@ -50,15 +50,24 @@ func BenchmarkMapMarshal(b *testing.B) {
 }
 
 func TestInvalidMarshal(t *testing.T) {
-	type I struct {
-		// you can't marshal funcs!
-		Thing func()
+	tests := []struct {
+		Name  string
+		Thing interface{}
+	}{
+		{"Function", func() {}},
+		{"Nil", nil},
+		{"Map with integer keys", map[int]string{1: "hi"}},
+		{"Channel", make(chan int)},
 	}
-	var val I
-	data, err := Marshal(val, OpenStepFormat)
-	if err == nil {
-		t.Fatalf("expected error; got plist data: %x", data)
-	} else {
-		t.Log(err)
+
+	for _, v := range tests {
+		t.Run(v.Name, func(t *testing.T) {
+			data, err := Marshal(v.Thing, OpenStepFormat)
+			if err == nil {
+				t.Fatalf("expected error; got plist data: %x", data)
+			} else {
+				t.Log(err)
+			}
+		})
 	}
 }

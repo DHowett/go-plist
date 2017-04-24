@@ -27,58 +27,28 @@ func BenchmarkOpenStepEncode(b *testing.B) {
 func TestEncode(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			failed := false
-
-			// A test that should render no output!
-			errors := make(map[int]error)
-			if test.ShouldFail && len(test.Expected) == 0 {
-				_, err := Marshal(test.Data, XMLFormat)
-				failed = failed || (test.ShouldFail && err == nil)
-			}
-
-			results := make(map[int][]byte)
-			for fmt, dat := range test.Expected {
+			for fmt, doc := range test.Documents {
 				if test.SkipEncode[fmt] {
 					continue
 				}
+				t.Run(FormatNames[fmt], func(t *testing.T) {
+					encoded, err := Marshal(test.Value, fmt)
 
-				results[fmt], errors[fmt] = Marshal(test.Data, fmt)
-				failed = failed || (test.ShouldFail && errors[fmt] == nil)
-				failed = failed || !bytes.Equal(dat, results[fmt])
-			}
+					if err != nil {
+						t.Error(err)
+					}
 
-			if failed {
-				t.Logf("Value: %#v", test.Data)
-				if test.ShouldFail {
-					t.Logf("Expected: Error")
-				} else {
-					printype := "%s"
-					for fmt, dat := range test.Expected {
+					if !bytes.Equal(doc, encoded) {
+						printype := "%s"
 						if fmt == BinaryFormat {
 							printype = "%2x"
-						} else {
-							printype = "%s"
 						}
-						t.Logf("Expected %s: "+printype+"\n", FormatNames[fmt], dat)
+						t.Logf("Value: %#v", test.Value)
+						t.Logf("Expected: "+printype+"\n", doc)
+						t.Logf("Received: "+printype+"\n", doc)
+						t.Fail()
 					}
-				}
-
-				printype := "%s"
-				for fmt, dat := range results {
-					if fmt == BinaryFormat {
-						printype = "%2x"
-					} else {
-						printype = "%s"
-					}
-					t.Logf("Received %s: "+printype+"\n", FormatNames[fmt], dat)
-				}
-				for fmt, err := range errors {
-					if err != nil {
-						t.Logf("Error %s: %v\n", FormatNames[fmt], err)
-					}
-				}
-				t.Log("FAILED")
-				t.Fail()
+				})
 			}
 		})
 	}

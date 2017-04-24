@@ -109,42 +109,47 @@ func TestIllegalDecode(t *testing.T) {
 func TestDecode(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			failed := false
-
-			d := test.DecodeData
-			if d == nil {
-				d = test.Data
+			expVal := test.DecodeValue
+			if expVal == nil {
+				expVal = test.Value
 			}
 
-			testData := reflect.ValueOf(d)
-			if !testData.IsValid() || isEmptyInterface(testData) {
+			expReflect := reflect.ValueOf(expVal)
+			if !expReflect.IsValid() || isEmptyInterface(expReflect) {
 				return
 			}
-			if testData.Kind() == reflect.Ptr || testData.Kind() == reflect.Interface {
-				testData = testData.Elem()
+			if expReflect.Kind() == reflect.Ptr || expReflect.Kind() == reflect.Interface {
+				// Unbox pointer for comparison's sake
+				expReflect = expReflect.Elem()
 			}
-			d = testData.Interface()
+			expVal = expReflect.Interface()
 
 			results := make(map[int]interface{})
-			errors := make(map[int]error)
-			for fmt, dat := range test.Expected {
+			for fmt, doc := range test.Documents {
 				if test.SkipDecode[fmt] {
 					return
 				}
-				val := reflect.New(testData.Type()).Interface()
-				_, errors[fmt] = Unmarshal(dat, val)
+				t.Run(FormatNames[fmt], func(t *testing.T) {
+					val := reflect.New(expReflect.Type()).Interface()
+					_, err := Unmarshal(doc, val)
+					if err != nil {
+						t.Error(err)
+					}
 
-				vt := reflect.ValueOf(val)
-				if vt.Kind() == reflect.Ptr || vt.Kind() == reflect.Interface {
-					vt = vt.Elem()
-					val = vt.Interface()
-				}
+					valReflect := reflect.ValueOf(val)
+					if valReflect.Kind() == reflect.Ptr || valReflect.Kind() == reflect.Interface {
+						// Unbox pointer for comparison's sake
+						valReflect = valReflect.Elem()
+						val = valReflect.Interface()
+					}
 
-				results[fmt] = val
-
-				if !reflect.DeepEqual(d, val) {
-					failed = true
-				}
+					results[fmt] = val
+					if !reflect.DeepEqual(expVal, val) {
+						t.Logf("Expected: %#v\n", expVal)
+						t.Logf("Received: %#v\n", val)
+						t.Fail()
+					}
+				})
 			}
 
 			if results[BinaryFormat] != nil && results[XMLFormat] != nil {
@@ -152,28 +157,8 @@ func TestDecode(t *testing.T) {
 					t.Log("Binary and XML decoding yielded different values.")
 					t.Log("Binary:", results[BinaryFormat])
 					t.Log("XML   :", results[XMLFormat])
-					failed = true
+					t.Fail()
 				}
-			}
-
-			if failed {
-				if test.ShouldFail {
-					t.Logf("Expected: Error")
-					return
-				}
-
-				t.Logf("Expected: %#v\n", d)
-
-				for fmt, dat := range results {
-					t.Logf("Received %s: %#v\n", FormatNames[fmt], dat)
-				}
-				for fmt, err := range errors {
-					if err != nil {
-						t.Logf("Error %s: %v\n", FormatNames[fmt], err)
-					}
-				}
-				t.Log("FAILED")
-				t.Fail()
 			}
 		})
 	}
