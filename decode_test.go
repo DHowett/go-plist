@@ -108,7 +108,7 @@ func TestIllegalDecode(t *testing.T) {
 
 func TestDecode(t *testing.T) {
 	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
+		subtest(t, test.Name, func(t *testing.T) {
 			expVal := test.DecodeValue
 			if expVal == nil {
 				expVal = test.Value
@@ -129,7 +129,7 @@ func TestDecode(t *testing.T) {
 				if test.SkipDecode[fmt] {
 					return
 				}
-				t.Run(FormatNames[fmt], func(t *testing.T) {
+				subtest(t, FormatNames[fmt], func(t *testing.T) {
 					val := reflect.New(expReflect.Type()).Interface()
 					_, err := Unmarshal(doc, val)
 					if err != nil {

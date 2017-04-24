@@ -1,7 +1,7 @@
 language: go
 go_import_path: "howett.net/plist"
 go:
-  - 1.4
+  - 1.2
   - master
 script:
   - go test -v

@@ -61,7 +61,7 @@ func TestInvalidMarshal(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		t.Run(v.Name, func(t *testing.T) {
+		subtest(t, v.Name, func(t *testing.T) {
 			data, err := Marshal(v.Thing, OpenStepFormat)
 			if err == nil {
 				t.Fatalf("expected error; got plist data: %x", data)

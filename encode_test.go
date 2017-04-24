@@ -26,12 +26,12 @@ func BenchmarkOpenStepEncode(b *testing.B) {
 
 func TestEncode(t *testing.T) {
 	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
+		subtest(t, test.Name, func(t *testing.T) {
 			for fmt, doc := range test.Documents {
 				if test.SkipEncode[fmt] {
 					continue
 				}
-				t.Run(FormatNames[fmt], func(t *testing.T) {
+				subtest(t, FormatNames[fmt], func(t *testing.T) {
 					encoded, err := Marshal(test.Value, fmt)
 
 					if err != nil {
