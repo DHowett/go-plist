@@ -13,6 +13,10 @@ import (
 	"unicode/utf16"
 )
 
+const (
+	signedHighBits = 0xFFFFFFFFFFFFFFFF
+)
+
 type offset uint64
 
 type bplistParser struct {
@@ -121,7 +125,12 @@ func (p *bplistParser) parseSizedInteger(off offset, nbytes int) (uint64, uint64
 	case 4:
 		return uint64(binary.BigEndian.Uint32(p.buffer[off:])), 0, off + offset(nbytes)
 	case 8:
-		return binary.BigEndian.Uint64(p.buffer[off:]), 0, off + offset(nbytes)
+		hi := uint64(0)
+		lo := binary.BigEndian.Uint64(p.buffer[off:])
+		if p.buffer[off]&0x80 != 0 {
+			hi = signedHighBits
+		}
+		return lo, hi, off + offset(nbytes)
 	case 16:
 		return binary.BigEndian.Uint64(p.buffer[off+8:]), binary.BigEndian.Uint64(p.buffer[off:]), off + offset(nbytes)
 	}
@@ -193,7 +202,7 @@ func (p *bplistParser) parseTagAtOffset(off offset) cfValue {
 	case bpTagInteger:
 		lo, hi, _ := p.parseIntegerAtOffset(off)
 		return &cfNumber{
-			signed: hi == 0xFFFFFFFFFFFFFFFF, // a signed integer is stored as a 128-bit integer with the top 64 bits set
+			signed: hi == signedHighBits, // a signed integer is stored as a 128-bit integer with the top 64 bits set
 			value:  lo,
 		}
 	case bpTagReal:
