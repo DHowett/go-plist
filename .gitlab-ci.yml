@@ -1,0 +1,29 @@
+stages:
+    - test
+
+variables:
+    GO_PACKAGE: "howett.net/plist"
+
+before_script:
+    - "mkdir -p $(dirname $GOPATH/src/$GO_PACKAGE)"
+    - "ln -s $(pwd) $GOPATH/src/$GO_PACKAGE"
+    - "cd $GOPATH/src/$GO_PACKAGE"
+
+go-test-cover:latest:
+    image: golang:alpine
+    stage: test
+    script:
+        - go test -v -cover
+    coverage: '/^coverage: \d+\.\d+/'
+
+go-test:1.6:
+    image: golang:1.6-alpine
+    stage: test
+    script:
+        - go test
+
+go-test:1.4:
+    image: golang:1.4-alpine
+    stage: test
+    script:
+        - go test
