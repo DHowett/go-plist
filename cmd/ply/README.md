@@ -5,7 +5,7 @@ _verb. work with (a tool, especially one requiring steady, rhythmic movements)._
 
 ## Installation
 
-`go get github.com/DHowett/go-plist/ply`
+`go get howett.net/plist/cmd/ply`
 
 ## Usage
 
