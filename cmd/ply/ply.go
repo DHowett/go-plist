@@ -61,8 +61,7 @@ func main() {
 	parser := flags.NewParser(&opts, flags.Default)
 	args, err := parser.Parse()
 	if err != nil {
-		parser.WriteHelp(os.Stderr)
-		fmt.Fprintln(os.Stderr, err)
+		// flags.Default implies flags.PrintError; there's no reason to print it here
 		return
 	}
 
