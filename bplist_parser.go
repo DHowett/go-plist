@@ -117,22 +117,29 @@ func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
 
 // parseSizedInteger returns a 128-bit integer as low64, high64
 func (p *bplistParser) parseSizedInteger(off offset, nbytes int) (uint64, uint64, offset) {
-	switch nbytes {
-	case 1:
-		return uint64(p.buffer[off]), 0, off + offset(nbytes)
-	case 2:
-		return uint64(binary.BigEndian.Uint16(p.buffer[off:])), 0, off + offset(nbytes)
-	case 4:
-		return uint64(binary.BigEndian.Uint32(p.buffer[off:])), 0, off + offset(nbytes)
-	case 8:
+	if nbytes > 0 {
+		lo := uint64(0)
 		hi := uint64(0)
-		lo := binary.BigEndian.Uint64(p.buffer[off:])
 		if p.buffer[off]&0x80 != 0 {
 			hi = signedHighBits
 		}
-		return lo, hi, off + offset(nbytes)
-	case 16:
-		return binary.BigEndian.Uint64(p.buffer[off+8:]), binary.BigEndian.Uint64(p.buffer[off:]), off + offset(nbytes)
+		switch nbytes {
+		case 1:
+			lo = uint64(p.buffer[off])
+			return lo, hi, off + offset(nbytes)
+		case 2:
+			lo = uint64(binary.BigEndian.Uint16(p.buffer[off:]))
+			return lo, hi, off + offset(nbytes)
+		case 4:
+			lo = uint64(binary.BigEndian.Uint32(p.buffer[off:]))
+			return lo, hi, off + offset(nbytes)
+		case 8:
+			lo = binary.BigEndian.Uint64(p.buffer[off:])
+			return lo, hi, off + offset(nbytes)
+		case 16:
+			return binary.BigEndian.Uint64(p.buffer[off+8:]), binary.BigEndian.Uint64(p.buffer[off:]), off + offset(nbytes)
+		}
+
 	}
 	panic(errors.New("illegal integer size"))
 }
