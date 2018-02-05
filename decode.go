@@ -50,7 +50,7 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 	} else {
 		parser = newXMLPlistParser(p.reader)
 		pval, err = parser.parseDocument()
-		if _, ok := err.(invalidPlistError); ok {
+		if pval == nil {
 			// Rewind: the XML parser might have exhausted the file.
 			p.reader.Seek(0, 0)
 			// We don't use parser here because we want the textPlistParser type
