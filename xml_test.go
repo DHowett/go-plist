@@ -40,6 +40,8 @@ func TestVariousIllegalXMLPlists(t *testing.T) {
 		"<plist><integer>10</plist>",
 		"<plist><real>10</plist>",
 		"<plist><string>10</plist>",
+		"<plist><string></strong></plist>",
+		"<plist><string><!directive!></string></plist>",
 		"<plist><dict>10</plist>",
 		"<plist><dict><key>10</plist>",
 		"<plist>",
