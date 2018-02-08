@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"howett.net/plist/cf"
 )
 
 type xmlPlistParser struct {
@@ -18,7 +20,7 @@ type xmlPlistParser struct {
 	ntags              int
 }
 
-func (p *xmlPlistParser) parseDocument() (pval cfValue, parseError error) {
+func (p *xmlPlistParser) parseDocument() (pval cf.Value, parseError error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -49,7 +51,7 @@ func (p *xmlPlistParser) parseDocument() (pval cfValue, parseError error) {
 	}
 }
 
-func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
+func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cf.Value {
 	var charData xml.CharData
 	switch element.Name.Local {
 	case "plist":
@@ -76,7 +78,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 			panic(err)
 		}
 
-		return cfString(charData)
+		return cf.String(charData)
 	case "integer":
 		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
@@ -92,11 +94,11 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 		if s[0] == '-' {
 			s, base := unsignedGetBase(s[1:])
 			n := mustParseInt("-"+s, base, 64)
-			return &cfNumber{signed: true, value: uint64(n)}
+			return &cf.Number{Signed: true, Value: uint64(n)}
 		} else {
 			s, base := unsignedGetBase(s)
 			n := mustParseUint(s, base, 64)
-			return &cfNumber{signed: false, value: n}
+			return &cf.Number{Signed: false, Value: n}
 		}
 	case "real":
 		p.ntags++
@@ -106,13 +108,13 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 		}
 
 		n := mustParseFloat(string(charData), 64)
-		return &cfReal{wide: true, value: n}
+		return &cf.Real{Wide: true, Value: n}
 	case "true", "false":
 		p.ntags++
 		p.xmlDecoder.Skip()
 
 		b := element.Name.Local == "true"
-		return cfBoolean(b)
+		return cf.Boolean(b)
 	case "date":
 		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
@@ -125,7 +127,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 			panic(err)
 		}
 
-		return cfDate(t)
+		return cf.Date(t)
 	case "data":
 		p.ntags++
 		err := p.xmlDecoder.DecodeElement(&charData, &element)
@@ -142,12 +144,12 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 			panic(err)
 		}
 
-		return cfData(bytes[:l])
+		return cf.Data(bytes[:l])
 	case "dict":
 		p.ntags++
 		var key *string
 		keys := make([]string, 0, 32)
-		values := make([]cfValue, 0, 32)
+		values := make([]cf.Value, 0, 32)
 		for {
 			token, err := p.xmlDecoder.Token()
 			if err != nil {
@@ -178,15 +180,15 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 		}
 
 		if len(keys) == 1 && keys[0] == "CF$UID" && len(values) == 1 {
-			if integer, ok := values[0].(*cfNumber); ok {
-				return cfUID(integer.value)
+			if integer, ok := values[0].(*cf.Number); ok {
+				return cf.UID(integer.Value)
 			}
 		}
 
-		return &cfDictionary{keys: keys, values: values}
+		return &cf.Dictionary{Keys: keys, Values: values}
 	case "array":
 		p.ntags++
-		values := make([]cfValue, 0, 10)
+		values := make([]cf.Value, 0, 10)
 		for {
 			token, err := p.xmlDecoder.Token()
 			if err != nil {
@@ -201,7 +203,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 				values = append(values, p.parseXMLElement(el))
 			}
 		}
-		return &cfArray{values}
+		return &cf.Array{values}
 	}
 	err := fmt.Errorf("encountered unknown element %s", element.Name.Local)
 	if p.ntags == 0 {

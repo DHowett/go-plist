@@ -6,6 +6,8 @@ import (
 	"io"
 	"math"
 	"time"
+
+	"howett.net/plist/cf"
 )
 
 const xmlDOCTYPE = `<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -16,7 +18,7 @@ type xmlPlistGenerator struct {
 	xmlEncoder *xml.Encoder
 }
 
-func (p *xmlPlistGenerator) generateDocument(root cfValue) {
+func (p *xmlPlistGenerator) generateDocument(root cf.Value) {
 	io.WriteString(p.writer, xml.Header)
 	io.WriteString(p.writer, xmlDOCTYPE)
 
@@ -41,46 +43,45 @@ func (p *xmlPlistGenerator) generateDocument(root cfValue) {
 	p.xmlEncoder.Flush()
 }
 
-func (p *xmlPlistGenerator) writeDictionary(dict *cfDictionary) {
-	dict.sort()
+func (p *xmlPlistGenerator) writeDictionary(dict *cf.Dictionary) {
 	startElement := xml.StartElement{Name: xml.Name{Local: "dict"}}
 	p.xmlEncoder.EncodeToken(startElement)
-	for i, k := range dict.keys {
+	dict.Range(func(i int, k string, v cf.Value) {
 		p.xmlEncoder.EncodeElement(k, xml.StartElement{Name: xml.Name{Local: "key"}})
-		p.writePlistValue(dict.values[i])
-	}
+		p.writePlistValue(v)
+	})
 	p.xmlEncoder.EncodeToken(startElement.End())
 }
 
-func (p *xmlPlistGenerator) writeArray(a *cfArray) {
+func (p *xmlPlistGenerator) writeArray(a *cf.Array) {
 	startElement := xml.StartElement{Name: xml.Name{Local: "array"}}
 	p.xmlEncoder.EncodeToken(startElement)
-	for _, v := range a.values {
+	a.Range(func(i int, v cf.Value) {
 		p.writePlistValue(v)
-	}
+	})
 	p.xmlEncoder.EncodeToken(startElement.End())
 }
 
-func (p *xmlPlistGenerator) writePlistValue(pval cfValue) {
+func (p *xmlPlistGenerator) writePlistValue(pval cf.Value) {
 	if pval == nil {
 		return
 	}
 
 	defer p.xmlEncoder.Flush()
 
-	if dict, ok := pval.(*cfDictionary); ok {
+	if dict, ok := pval.(*cf.Dictionary); ok {
 		p.writeDictionary(dict)
 		return
-	} else if a, ok := pval.(*cfArray); ok {
+	} else if a, ok := pval.(*cf.Array); ok {
 		p.writeArray(a)
 		return
-	} else if uid, ok := pval.(cfUID); ok {
-		p.writeDictionary(&cfDictionary{
-			keys: []string{"CF$UID"},
-			values: []cfValue{
-				&cfNumber{
-					signed: false,
-					value:  uint64(uid),
+	} else if uid, ok := pval.(cf.UID); ok {
+		p.writeDictionary(&cf.Dictionary{
+			Keys: []string{"CF$UID"},
+			Values: []cf.Value{
+				&cf.Number{
+					Signed: false,
+					Value:  uint64(uid),
 				},
 			},
 		})
@@ -92,37 +93,37 @@ func (p *xmlPlistGenerator) writePlistValue(pval cfValue) {
 	var encodedValue interface{} = pval
 
 	switch pval := pval.(type) {
-	case cfString:
+	case cf.String:
 		key = "string"
-	case *cfNumber:
+	case *cf.Number:
 		key = "integer"
-		if pval.signed {
-			encodedValue = int64(pval.value)
+		if pval.Signed {
+			encodedValue = int64(pval.Value)
 		} else {
-			encodedValue = pval.value
+			encodedValue = pval.Value
 		}
-	case *cfReal:
+	case *cf.Real:
 		key = "real"
-		encodedValue = pval.value
+		encodedValue = pval.Value
 		switch {
-		case math.IsInf(pval.value, 1):
+		case math.IsInf(pval.Value, 1):
 			encodedValue = "inf"
-		case math.IsInf(pval.value, -1):
+		case math.IsInf(pval.Value, -1):
 			encodedValue = "-inf"
-		case math.IsNaN(pval.value):
+		case math.IsNaN(pval.Value):
 			encodedValue = "nan"
 		}
-	case cfBoolean:
+	case cf.Boolean:
 		key = "false"
 		b := bool(pval)
 		if b {
 			key = "true"
 		}
 		encodedValue = ""
-	case cfData:
+	case cf.Data:
 		key = "data"
 		encodedValue = xml.CharData(base64.StdEncoding.EncodeToString([]byte(pval)))
-	case cfDate:
+	case cf.Date:
 		key = "date"
 		encodedValue = time.Time(pval).In(time.UTC).Format(time.RFC3339)
 	}

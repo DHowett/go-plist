@@ -4,6 +4,8 @@ import (
 	"encoding"
 	"reflect"
 	"time"
+
+	"howett.net/plist/cf"
 )
 
 func isEmptyValue(v reflect.Value) bool {
@@ -44,7 +46,7 @@ func implementsInterface(val reflect.Value, interfaceType reflect.Type) (interfa
 	return nil, false
 }
 
-func (p *Encoder) marshalPlistInterface(marshalable Marshaler) cfValue {
+func (p *Encoder) marshalPlistInterface(marshalable Marshaler) cf.Value {
 	value, err := marshalable.MarshalPlist()
 	if err != nil {
 		panic(err)
@@ -53,40 +55,40 @@ func (p *Encoder) marshalPlistInterface(marshalable Marshaler) cfValue {
 }
 
 // marshalTextInterface marshals a TextMarshaler to a plist string.
-func (p *Encoder) marshalTextInterface(marshalable encoding.TextMarshaler) cfValue {
+func (p *Encoder) marshalTextInterface(marshalable encoding.TextMarshaler) cf.Value {
 	s, err := marshalable.MarshalText()
 	if err != nil {
 		panic(err)
 	}
-	return cfString(s)
+	return cf.String(s)
 }
 
 // marshalStruct marshals a reflected struct value to a plist dictionary
-func (p *Encoder) marshalStruct(typ reflect.Type, val reflect.Value) cfValue {
+func (p *Encoder) marshalStruct(typ reflect.Type, val reflect.Value) cf.Value {
 	tinfo, _ := getTypeInfo(typ)
 
-	dict := &cfDictionary{
-		keys:   make([]string, 0, len(tinfo.fields)),
-		values: make([]cfValue, 0, len(tinfo.fields)),
+	dict := &cf.Dictionary{
+		Keys:   make([]string, 0, len(tinfo.fields)),
+		Values: make([]cf.Value, 0, len(tinfo.fields)),
 	}
 	for _, finfo := range tinfo.fields {
 		value := finfo.value(val)
 		if !value.IsValid() || finfo.omitEmpty && isEmptyValue(value) {
 			continue
 		}
-		dict.keys = append(dict.keys, finfo.name)
-		dict.values = append(dict.values, p.marshal(value))
+		dict.Keys = append(dict.Keys, finfo.name)
+		dict.Values = append(dict.Values, p.marshal(value))
 	}
 
 	return dict
 }
 
-func (p *Encoder) marshalTime(val reflect.Value) cfValue {
+func (p *Encoder) marshalTime(val reflect.Value) cf.Value {
 	time := val.Interface().(time.Time)
-	return cfDate(time)
+	return cf.Date(time)
 }
 
-func (p *Encoder) marshal(val reflect.Value) cfValue {
+func (p *Encoder) marshal(val reflect.Value) cf.Value {
 	if !val.IsValid() {
 		return nil
 	}
@@ -124,7 +126,7 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 	typ := val.Type()
 
 	if typ == uidType {
-		return cfUID(val.Uint())
+		return cf.UID(val.Uint())
 	}
 
 	if val.Kind() == reflect.Struct {
@@ -133,17 +135,17 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 
 	switch val.Kind() {
 	case reflect.String:
-		return cfString(val.String())
+		return cf.String(val.String())
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return &cfNumber{signed: true, value: uint64(val.Int())}
+		return &cf.Number{Signed: true, Value: uint64(val.Int())}
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return &cfNumber{signed: false, value: val.Uint()}
+		return &cf.Number{Signed: false, Value: val.Uint()}
 	case reflect.Float32:
-		return &cfReal{wide: false, value: val.Float()}
+		return &cf.Real{Wide: false, Value: val.Float()}
 	case reflect.Float64:
-		return &cfReal{wide: true, value: val.Float()}
+		return &cf.Real{Wide: true, Value: val.Float()}
 	case reflect.Bool:
-		return cfBoolean(val.Bool())
+		return cf.Boolean(val.Bool())
 	case reflect.Slice, reflect.Array:
 		if typ.Elem().Kind() == reflect.Uint8 {
 			bytes := []byte(nil)
@@ -153,15 +155,15 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 				bytes = make([]byte, val.Len())
 				reflect.Copy(reflect.ValueOf(bytes), val)
 			}
-			return cfData(bytes)
+			return cf.Data(bytes)
 		} else {
-			values := make([]cfValue, val.Len())
+			values := make([]cf.Value, val.Len())
 			for i, length := 0, val.Len(); i < length; i++ {
 				if subpval := p.marshal(val.Index(i)); subpval != nil {
 					values[i] = subpval
 				}
 			}
-			return &cfArray{values}
+			return &cf.Array{values}
 		}
 	case reflect.Map:
 		if typ.Key().Kind() != reflect.String {
@@ -169,14 +171,14 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 		}
 
 		l := val.Len()
-		dict := &cfDictionary{
-			keys:   make([]string, 0, l),
-			values: make([]cfValue, 0, l),
+		dict := &cf.Dictionary{
+			Keys:   make([]string, 0, l),
+			Values: make([]cf.Value, 0, l),
 		}
 		for _, keyv := range val.MapKeys() {
 			if subpval := p.marshal(val.MapIndex(keyv)); subpval != nil {
-				dict.keys = append(dict.keys, keyv.String())
-				dict.values = append(dict.values, subpval)
+				dict.Keys = append(dict.Keys, keyv.String())
+				dict.Values = append(dict.Values, subpval)
 			}
 		}
 		return dict

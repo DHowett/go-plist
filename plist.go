@@ -2,6 +2,8 @@ package plist
 
 import (
 	"reflect"
+
+	"howett.net/plist/cf"
 )
 
 // Property list format constants
@@ -64,7 +66,7 @@ func (e plistParseError) Error() string {
 // that of integers.
 //
 // UIDs cannot be serialized in OpenStepFormat or GNUStepFormat property lists.
-type UID uint64
+type UID cf.UID
 
 // Marshaler is the interface implemented by types that can marshal themselves into valid
 // property list objects. The returned value is marshaled in place of the original value

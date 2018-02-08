@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"io/ioutil"
 	"testing"
+
+	"howett.net/plist/cf"
 )
 
 func BenchmarkBplistGenerate(b *testing.B) {
@@ -32,7 +34,7 @@ func TestBplistInt128(t *testing.T) {
 	buf := bytes.NewReader(bplist)
 	d := newBplistParser(buf)
 	pval, _ := d.parseDocument()
-	if pinteger, ok := pval.(*cfNumber); !ok || pinteger.value != expected {
+	if pinteger, ok := pval.(*cf.Number); !ok || pinteger.Value != expected {
 		t.Error("Expected", expected, "received", pval)
 	}
 }

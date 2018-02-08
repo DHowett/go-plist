@@ -5,6 +5,8 @@ import (
 	"io"
 	"strconv"
 	"time"
+
+	"howett.net/plist/cf"
 )
 
 type textPlistGenerator struct {
@@ -24,7 +26,7 @@ var (
 	padding             = "0000"
 )
 
-func (p *textPlistGenerator) generateDocument(pval cfValue) {
+func (p *textPlistGenerator) generateDocument(pval cf.Value) {
 	p.writePlistValue(pval)
 }
 
@@ -99,61 +101,60 @@ func (p *textPlistGenerator) writeIndent() {
 	}
 }
 
-func (p *textPlistGenerator) writePlistValue(pval cfValue) {
+func (p *textPlistGenerator) writePlistValue(pval cf.Value) {
 	if pval == nil {
 		return
 	}
 
 	switch pval := pval.(type) {
-	case *cfDictionary:
-		pval.sort()
+	case *cf.Dictionary:
 		p.writer.Write([]byte(`{`))
 		p.deltaIndent(1)
-		for i, k := range pval.keys {
+		pval.Range(func(i int, k string, v cf.Value) {
 			p.writeIndent()
 			io.WriteString(p.writer, p.plistQuotedString(k))
 			p.writer.Write(p.dictKvDelimiter)
-			p.writePlistValue(pval.values[i])
+			p.writePlistValue(v)
 			p.writer.Write(p.dictEntryDelimiter)
-		}
+		})
 		p.deltaIndent(-1)
 		p.writeIndent()
 		p.writer.Write([]byte(`}`))
-	case *cfArray:
+	case *cf.Array:
 		p.writer.Write([]byte(`(`))
 		p.deltaIndent(1)
-		for _, v := range pval.values {
+		pval.Range(func(i int, v cf.Value) {
 			p.writeIndent()
 			p.writePlistValue(v)
 			p.writer.Write(p.arrayDelimiter)
-		}
+		})
 		p.deltaIndent(-1)
 		p.writeIndent()
 		p.writer.Write([]byte(`)`))
-	case cfString:
+	case cf.String:
 		io.WriteString(p.writer, p.plistQuotedString(string(pval)))
-	case *cfNumber:
+	case *cf.Number:
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`<*I`))
 		}
-		if pval.signed {
-			io.WriteString(p.writer, strconv.FormatInt(int64(pval.value), 10))
+		if pval.Signed {
+			io.WriteString(p.writer, strconv.FormatInt(int64(pval.Value), 10))
 		} else {
-			io.WriteString(p.writer, strconv.FormatUint(pval.value, 10))
+			io.WriteString(p.writer, strconv.FormatUint(pval.Value, 10))
 		}
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`>`))
 		}
-	case *cfReal:
+	case *cf.Real:
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`<*R`))
 		}
 		// GNUstep does not differentiate between 32/64-bit floats.
-		io.WriteString(p.writer, strconv.FormatFloat(pval.value, 'g', -1, 64))
+		io.WriteString(p.writer, strconv.FormatFloat(pval.Value, 'g', -1, 64))
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`>`))
 		}
-	case cfBoolean:
+	case cf.Boolean:
 		if p.format == GNUStepFormat {
 			if pval {
 				p.writer.Write([]byte(`<*BY>`))
@@ -167,7 +168,7 @@ func (p *textPlistGenerator) writePlistValue(pval cfValue) {
 				p.writer.Write([]byte(`0`))
 			}
 		}
-	case cfData:
+	case cf.Data:
 		var hexencoded [9]byte
 		var l int
 		var asc = 9
@@ -189,7 +190,7 @@ func (p *textPlistGenerator) writePlistValue(pval cfValue) {
 			io.WriteString(p.writer, string(hexencoded[:asc]))
 		}
 		p.writer.Write([]byte(`>`))
-	case cfDate:
+	case cf.Date:
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`<*D`))
 			io.WriteString(p.writer, time.Time(pval).In(time.UTC).Format(textPlistTimeLayout))

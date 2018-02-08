@@ -11,6 +11,8 @@ import (
 	"time"
 	"unicode/utf16"
 	"unicode/utf8"
+
+	"howett.net/plist/cf"
 )
 
 type textPlistParser struct {
@@ -61,7 +63,7 @@ func guessEncodingAndConvert(buffer []byte) (string, error) {
 	return zeroCopy8BitString(buffer, 0, len(buffer)), nil
 }
 
-func (p *textPlistParser) parseDocument() (pval cfValue, parseError error) {
+func (p *textPlistParser) parseDocument() (pval cf.Value, parseError error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -86,7 +88,7 @@ func (p *textPlistParser) parseDocument() (pval cfValue, parseError error) {
 
 	p.skipWhitespaceAndComments()
 	if p.peek() != eof {
-		if _, ok := val.(cfString); !ok {
+		if _, ok := val.(cf.String); !ok {
 			p.error("garbage after end of document")
 		}
 
@@ -272,7 +274,7 @@ func (p *textPlistParser) parseEscape() string {
 }
 
 // the " has already been consumed
-func (p *textPlistParser) parseQuotedString() cfString {
+func (p *textPlistParser) parseQuotedString() cf.String {
 	p.ignore() // ignore the "
 
 	slowPath := false
@@ -287,10 +289,10 @@ func (p *textPlistParser) parseQuotedString() cfString {
 			section := p.emit()
 			p.pos++ // skip "
 			if !slowPath {
-				return cfString(section)
+				return cf.String(section)
 			} else {
 				s += section
-				return cfString(s)
+				return cf.String(s)
 			}
 		case '\\':
 			slowPath = true
@@ -301,22 +303,22 @@ func (p *textPlistParser) parseQuotedString() cfString {
 	}
 }
 
-func (p *textPlistParser) parseUnquotedString() cfString {
+func (p *textPlistParser) parseUnquotedString() cf.String {
 	p.scanCharactersNotInSet(&gsQuotable)
 	s := p.emit()
 	if s == "" {
 		p.error("invalid unquoted string (found an unquoted character that should be quoted?)")
 	}
 
-	return cfString(s)
+	return cf.String(s)
 }
 
 // the { has already been consumed
-func (p *textPlistParser) parseDictionary(ignoreEof bool) *cfDictionary {
+func (p *textPlistParser) parseDictionary(ignoreEof bool) *cf.Dictionary {
 	//p.ignore() // ignore the {
-	var keypv cfValue
+	var keypv cf.Value
 	keys := make([]string, 0, 32)
-	values := make([]cfValue, 0, 32)
+	values := make([]cf.Value, 0, 32)
 outer:
 	for {
 		p.skipWhitespaceAndComments()
@@ -341,7 +343,7 @@ outer:
 
 		p.skipWhitespaceAndComments()
 
-		var val cfValue
+		var val cf.Value
 		n := p.next()
 		if n == ';' {
 			val = keypv
@@ -358,17 +360,17 @@ outer:
 			p.error("missing = in dictionary")
 		}
 
-		keys = append(keys, string(keypv.(cfString)))
+		keys = append(keys, string(keypv.(cf.String)))
 		values = append(values, val)
 	}
 
-	return &cfDictionary{keys: keys, values: values}
+	return &cf.Dictionary{Keys: keys, Values: values}
 }
 
 // the ( has already been consumed
-func (p *textPlistParser) parseArray() *cfArray {
+func (p *textPlistParser) parseArray() *cf.Array {
 	//p.ignore() // ignore the (
-	values := make([]cfValue, 0, 32)
+	values := make([]cf.Value, 0, 32)
 outer:
 	for {
 		p.skipWhitespaceAndComments()
@@ -385,18 +387,18 @@ outer:
 		}
 
 		pval := p.parsePlistValue() // whitespace is consumed within
-		if str, ok := pval.(cfString); ok && string(str) == "" {
+		if str, ok := pval.(cf.String); ok && string(str) == "" {
 			// Empty strings in arrays are apparently skipped?
 			// TODO: Figure out why this was implemented.
 			continue
 		}
 		values = append(values, pval)
 	}
-	return &cfArray{values}
+	return &cf.Array{values}
 }
 
 // the <* have already been consumed
-func (p *textPlistParser) parseGNUStepValue() cfValue {
+func (p *textPlistParser) parseGNUStepValue() cf.Value {
 	typ := p.next()
 	p.ignore()
 	p.scanUntil('>')
@@ -412,31 +414,31 @@ func (p *textPlistParser) parseGNUStepValue() cfValue {
 	case 'I':
 		if v[0] == '-' {
 			n := mustParseInt(v, 10, 64)
-			return &cfNumber{signed: true, value: uint64(n)}
+			return &cf.Number{Signed: true, Value: uint64(n)}
 		} else {
 			n := mustParseUint(v, 10, 64)
-			return &cfNumber{signed: false, value: n}
+			return &cf.Number{Signed: false, Value: n}
 		}
 	case 'R':
 		n := mustParseFloat(v, 64)
-		return &cfReal{wide: true, value: n} // TODO(DH) 32/64
+		return &cf.Real{Wide: true, Value: n} // TODO(DH) 32/64
 	case 'B':
 		b := v[0] == 'Y'
-		return cfBoolean(b)
+		return cf.Boolean(b)
 	case 'D':
 		t, err := time.Parse(textPlistTimeLayout, v)
 		if err != nil {
 			p.error(err.Error())
 		}
 
-		return cfDate(t.In(time.UTC))
+		return cf.Date(t.In(time.UTC))
 	}
 	p.error("invalid GNUStep type " + string(typ))
 	return nil
 }
 
 // The < has already been consumed
-func (p *textPlistParser) parseHexData() cfData {
+func (p *textPlistParser) parseHexData() cf.Data {
 	buf := make([]byte, 256)
 	i := 0
 	c := 0
@@ -451,7 +453,7 @@ func (p *textPlistParser) parseHexData() cfData {
 				p.error("uneven number of hex digits in data")
 			}
 			p.ignore()
-			return cfData(buf[:i])
+			return cf.Data(buf[:i])
 		case ' ', '\t', '\n', '\r', '\u2028', '\u2029': // more lax than apple here: skip spaces
 			continue
 		}
@@ -479,13 +481,13 @@ func (p *textPlistParser) parseHexData() cfData {
 	}
 }
 
-func (p *textPlistParser) parsePlistValue() cfValue {
+func (p *textPlistParser) parsePlistValue() cf.Value {
 	for {
 		p.skipWhitespaceAndComments()
 
 		switch p.next() {
 		case eof:
-			return &cfDictionary{}
+			return &cf.Dictionary{}
 		case '<':
 			if p.next() == '*' {
 				p.format = GNUStepFormat

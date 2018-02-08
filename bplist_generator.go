@@ -7,6 +7,8 @@ import (
 	"io"
 	"time"
 	"unicode/utf16"
+
+	"howett.net/plist/cf"
 )
 
 func bplistMinimumIntSize(n uint64) int {
@@ -22,9 +24,9 @@ func bplistMinimumIntSize(n uint64) int {
 	}
 }
 
-func bplistValueShouldUnique(pval cfValue) bool {
+func bplistValueShouldUnique(pval cf.Value) bool {
 	switch pval.(type) {
-	case cfString, *cfNumber, *cfReal, cfDate, cfData:
+	case cf.String, *cf.Number, *cf.Real, cf.Date, cf.Data:
 		return true
 	}
 	return false
@@ -32,13 +34,13 @@ func bplistValueShouldUnique(pval cfValue) bool {
 
 type bplistGenerator struct {
 	writer   *countedWriter
-	objmap   map[interface{}]uint64 // maps pValue.hash()es to object locations
-	objtable []cfValue
+	objmap   map[interface{}]uint64 // maps pValue.Hash()es to object locations
+	objtable []cf.Value
 	trailer  bplistTrailer
 }
 
-func (p *bplistGenerator) flattenPlistValue(pval cfValue) {
-	key := pval.hash()
+func (p *bplistGenerator) flattenPlistValue(pval cf.Value) {
+	key := pval.Hash()
 	if bplistValueShouldUnique(pval) {
 		if _, ok := p.objmap[key]; ok {
 			return
@@ -49,28 +51,28 @@ func (p *bplistGenerator) flattenPlistValue(pval cfValue) {
 	p.objtable = append(p.objtable, pval)
 
 	switch pval := pval.(type) {
-	case *cfDictionary:
-		pval.sort()
-		for _, k := range pval.keys {
-			p.flattenPlistValue(cfString(k))
-		}
-		for _, v := range pval.values {
+	case *cf.Dictionary:
+		// TODO(DH): this sorts every time (!)
+		pval.Range(func(i int, k string, v cf.Value) {
+			p.flattenPlistValue(cf.String(k))
+		})
+		pval.Range(func(i int, k string, v cf.Value) {
 			p.flattenPlistValue(v)
-		}
-	case *cfArray:
-		for _, v := range pval.values {
+		})
+	case *cf.Array:
+		pval.Range(func(i int, v cf.Value) {
 			p.flattenPlistValue(v)
-		}
+		})
 	}
 }
 
-func (p *bplistGenerator) indexForPlistValue(pval cfValue) (uint64, bool) {
-	v, ok := p.objmap[pval.hash()]
+func (p *bplistGenerator) indexForPlistValue(pval cf.Value) (uint64, bool) {
+	v, ok := p.objmap[pval.Hash()]
 	return v, ok
 }
 
-func (p *bplistGenerator) generateDocument(root cfValue) {
-	p.objtable = make([]cfValue, 0, 16)
+func (p *bplistGenerator) generateDocument(root cf.Value) {
+	p.objtable = make([]cf.Value, 0, 16)
 	p.objmap = make(map[interface{}]uint64)
 	p.flattenPlistValue(root)
 
@@ -86,7 +88,7 @@ func (p *bplistGenerator) generateDocument(root cfValue) {
 	}
 
 	p.trailer.OffsetIntSize = uint8(bplistMinimumIntSize(uint64(p.writer.BytesWritten())))
-	p.trailer.TopObject = p.objmap[root.hash()]
+	p.trailer.TopObject = p.objmap[root.Hash()]
 	p.trailer.OffsetTableOffset = uint64(p.writer.BytesWritten())
 
 	for _, offset := range offtable {
@@ -96,33 +98,33 @@ func (p *bplistGenerator) generateDocument(root cfValue) {
 	binary.Write(p.writer, binary.BigEndian, p.trailer)
 }
 
-func (p *bplistGenerator) writePlistValue(pval cfValue) {
+func (p *bplistGenerator) writePlistValue(pval cf.Value) {
 	if pval == nil {
 		return
 	}
 
 	switch pval := pval.(type) {
-	case *cfDictionary:
+	case *cf.Dictionary:
 		p.writeDictionaryTag(pval)
-	case *cfArray:
-		p.writeArrayTag(pval.values)
-	case cfString:
+	case *cf.Array:
+		p.writeArrayTag(pval.Values)
+	case cf.String:
 		p.writeStringTag(string(pval))
-	case *cfNumber:
-		p.writeIntTag(pval.value)
-	case *cfReal:
-		if pval.wide {
-			p.writeRealTag(pval.value, 64)
+	case *cf.Number:
+		p.writeIntTag(pval.Value)
+	case *cf.Real:
+		if pval.Wide {
+			p.writeRealTag(pval.Value, 64)
 		} else {
-			p.writeRealTag(pval.value, 32)
+			p.writeRealTag(pval.Value, 32)
 		}
-	case cfBoolean:
+	case cf.Boolean:
 		p.writeBoolTag(bool(pval))
-	case cfData:
+	case cf.Data:
 		p.writeDataTag([]byte(pval))
-	case cfDate:
+	case cf.Date:
 		p.writeDateTag(time.Time(pval))
-	case cfUID:
+	case cf.UID:
 		p.writeUIDTag(UID(pval))
 	default:
 		panic(fmt.Errorf("unknown plist type %t", pval))
@@ -239,35 +241,33 @@ func (p *bplistGenerator) writeStringTag(str string) {
 	binary.Write(p.writer, binary.BigEndian, []byte(str))
 }
 
-func (p *bplistGenerator) writeDictionaryTag(dict *cfDictionary) {
+func (p *bplistGenerator) writeDictionaryTag(dict *cf.Dictionary) {
 	// assumption: sorted already; flattenPlistValue did this.
-	cnt := len(dict.keys)
+	cnt := dict.Len()
 	p.writeCountedTag(bpTagDictionary, uint64(cnt))
 	vals := make([]uint64, cnt*2)
-	for i, k := range dict.keys {
-		// invariant: keys have already been "uniqued" (as PStrings)
-		keyIdx, ok := p.objmap[cfString(k).hash()]
+	dict.Range(func(i int, k string, v cf.Value) {
+		keyIdx, ok := p.objmap[cf.String(k).Hash()]
 		if !ok {
 			panic(errors.New("failed to find key " + k + " in object map during serialization"))
 		}
-		vals[i] = keyIdx
-	}
 
-	for i, v := range dict.values {
 		// invariant: values have already been "uniqued"
 		objIdx, ok := p.indexForPlistValue(v)
 		if !ok {
 			panic(errors.New("failed to find value in object map during serialization"))
 		}
+
+		vals[i] = keyIdx
 		vals[i+cnt] = objIdx
-	}
+	})
 
 	for _, v := range vals {
 		p.writeSizedInt(v, int(p.trailer.ObjectRefSize))
 	}
 }
 
-func (p *bplistGenerator) writeArrayTag(arr []cfValue) {
+func (p *bplistGenerator) writeArrayTag(arr []cf.Value) {
 	p.writeCountedTag(bpTagArray, uint64(len(arr)))
 	for _, v := range arr {
 		objIdx, ok := p.indexForPlistValue(v)

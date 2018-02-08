@@ -6,10 +6,12 @@ import (
 	"io"
 	"reflect"
 	"runtime"
+
+	"howett.net/plist/cf"
 )
 
 type generator interface {
-	generateDocument(cfValue)
+	generateDocument(cf.Value)
 	Indent(string)
 }
 

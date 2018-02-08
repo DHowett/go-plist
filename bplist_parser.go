@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"time"
 	"unicode/utf16"
+
+	"howett.net/plist/cf"
 )
 
 type offset uint64
@@ -20,7 +22,7 @@ type bplistParser struct {
 
 	reader        io.ReadSeeker
 	version       int
-	objects       []cfValue // object ID to object
+	objects       []cf.Value // object ID to object
 	trailer       bplistTrailer
 	trailerOffset uint64
 
@@ -58,7 +60,7 @@ func (p *bplistParser) validateDocumentTrailer() {
 	}
 }
 
-func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
+func (p *bplistParser) parseDocument() (pval cf.Value, parseError error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -105,7 +107,7 @@ func (p *bplistParser) parseDocument() (pval cfValue, parseError error) {
 	// - Object IDs are big enough to support the number of objects in this plist
 	// - Top object is in range
 
-	p.objects = make([]cfValue, p.trailer.NumObjects)
+	p.objects = make([]cf.Value, p.trailer.NumObjects)
 
 	pval = p.objectAtIndex(p.trailer.TopObject)
 	return
@@ -138,7 +140,7 @@ func (p *bplistParser) parseOffsetAtOffset(off offset) (offset, offset) {
 	return offset(parsedOffset), next
 }
 
-func (p *bplistParser) objectAtIndex(index uint64) cfValue {
+func (p *bplistParser) objectAtIndex(index uint64) cf.Value {
 	if index >= p.trailer.NumObjects {
 		panic(fmt.Errorf("invalid object#%d (max %d)", index, p.trailer.NumObjects))
 	}
@@ -181,30 +183,30 @@ func (p *bplistParser) popNestedObject() {
 	p.containerStack = p.containerStack[:len(p.containerStack)-1]
 }
 
-func (p *bplistParser) parseTagAtOffset(off offset) cfValue {
+func (p *bplistParser) parseTagAtOffset(off offset) cf.Value {
 	tag := p.buffer[off]
 
 	switch tag & 0xF0 {
 	case bpTagNull:
 		switch tag & 0x0F {
 		case bpTagBoolTrue, bpTagBoolFalse:
-			return cfBoolean(tag == bpTagBoolTrue)
+			return cf.Boolean(tag == bpTagBoolTrue)
 		}
 	case bpTagInteger:
 		lo, hi, _ := p.parseIntegerAtOffset(off)
-		return &cfNumber{
-			signed: hi == 0xFFFFFFFFFFFFFFFF, // a signed integer is stored as a 128-bit integer with the top 64 bits set
-			value:  lo,
+		return &cf.Number{
+			Signed: hi == 0xFFFFFFFFFFFFFFFF, // a signed integer is stored as a 128-bit integer with the top 64 bits set
+			Value:  lo,
 		}
 	case bpTagReal:
 		nbytes := 1 << (tag & 0x0F)
 		switch nbytes {
 		case 4:
 			bits := binary.BigEndian.Uint32(p.buffer[off+1:])
-			return &cfReal{wide: false, value: float64(math.Float32frombits(bits))}
+			return &cf.Real{Wide: false, Value: float64(math.Float32frombits(bits))}
 		case 8:
 			bits := binary.BigEndian.Uint64(p.buffer[off+1:])
-			return &cfReal{wide: true, value: math.Float64frombits(bits)}
+			return &cf.Real{Wide: true, Value: math.Float64frombits(bits)}
 		}
 		panic(errors.New("illegal float size"))
 	case bpTagDate:
@@ -217,19 +219,19 @@ func (p *bplistParser) parseTagAtOffset(off offset) cfValue {
 
 		sec, fsec := math.Modf(val)
 		time := time.Unix(int64(sec), int64(fsec*float64(time.Second))).In(time.UTC)
-		return cfDate(time)
+		return cf.Date(time)
 	case bpTagData:
 		data := p.parseDataAtOffset(off)
-		return cfData(data)
+		return cf.Data(data)
 	case bpTagASCIIString:
 		str := p.parseASCIIStringAtOffset(off)
-		return cfString(str)
+		return cf.String(str)
 	case bpTagUTF16String:
 		str := p.parseUTF16StringAtOffset(off)
-		return cfString(str)
+		return cf.String(str)
 	case bpTagUID: // Somehow different than int: low half is nbytes - 1 instead of log2(nbytes)
 		lo, _, _ := p.parseSizedInteger(off+1, int(tag&0xF)+1)
-		return cfUID(lo)
+		return cf.UID(lo)
 	case bpTagDictionary:
 		return p.parseDictionaryAtOffset(off)
 	case bpTagArray:
@@ -285,11 +287,11 @@ func (p *bplistParser) parseUTF16StringAtOffset(off offset) string {
 	return string(runes)
 }
 
-func (p *bplistParser) parseObjectListAtOffset(off offset, count uint64) []cfValue {
+func (p *bplistParser) parseObjectListAtOffset(off offset, count uint64) []cf.Value {
 	if off+offset(count*uint64(p.trailer.ObjectRefSize)) > offset(p.trailer.OffsetTableOffset) {
 		panic(fmt.Errorf("list@0x%x length (%v) puts its end beyond the offset table at 0x%x", off, count, p.trailer.OffsetTableOffset))
 	}
-	objects := make([]cfValue, count)
+	objects := make([]cf.Value, count)
 
 	next := off
 	var oid uint64
@@ -301,7 +303,7 @@ func (p *bplistParser) parseObjectListAtOffset(off offset, count uint64) []cfVal
 	return objects
 }
 
-func (p *bplistParser) parseDictionaryAtOffset(off offset) *cfDictionary {
+func (p *bplistParser) parseDictionaryAtOffset(off offset) *cf.Dictionary {
 	p.pushNestedObject(off)
 	defer p.popNestedObject()
 
@@ -311,26 +313,26 @@ func (p *bplistParser) parseDictionaryAtOffset(off offset) *cfDictionary {
 
 	keys := make([]string, cnt)
 	for i := uint64(0); i < cnt; i++ {
-		if str, ok := objects[i].(cfString); ok {
+		if str, ok := objects[i].(cf.String); ok {
 			keys[i] = string(str)
 		} else {
 			panic(fmt.Errorf("dictionary@0x%x contains non-string key at index %d", off, i))
 		}
 	}
 
-	return &cfDictionary{
-		keys:   keys,
-		values: objects[cnt:],
+	return &cf.Dictionary{
+		Keys:   keys,
+		Values: objects[cnt:],
 	}
 }
 
-func (p *bplistParser) parseArrayAtOffset(off offset) *cfArray {
+func (p *bplistParser) parseArrayAtOffset(off offset) *cf.Array {
 	p.pushNestedObject(off)
 	defer p.popNestedObject()
 
 	// an array is just an object list
 	cnt, start := p.countForTagAtOffset(off)
-	return &cfArray{p.parseObjectListAtOffset(start, cnt)}
+	return &cf.Array{p.parseObjectListAtOffset(start, cnt)}
 }
 
 func newBplistParser(r io.ReadSeeker) *bplistParser {

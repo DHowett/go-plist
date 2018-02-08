@@ -5,10 +5,12 @@ import (
 	"io"
 	"reflect"
 	"runtime"
+
+	"howett.net/plist/cf"
 )
 
 type parser interface {
-	parseDocument() (cfValue, error)
+	parseDocument() (cf.Value, error)
 }
 
 // A Decoder reads a property list from an input stream.
@@ -38,7 +40,7 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 	p.reader.Seek(0, 0)
 
 	var parser parser
-	var pval cfValue
+	var pval cf.Value
 	if bytes.Equal(header, []byte("bplist")) {
 		parser = newBplistParser(p.reader)
 		pval, err = parser.parseDocument()
