@@ -45,7 +45,7 @@ func TestEncode(t *testing.T) {
 						}
 						t.Logf("Value: %#v", test.Value)
 						t.Logf("Expected: "+printype+"\n", doc)
-						t.Logf("Received: "+printype+"\n", doc)
+						t.Logf("Received: "+printype+"\n", encoded)
 						t.Fail()
 					}
 				})
