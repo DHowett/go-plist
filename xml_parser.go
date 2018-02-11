@@ -60,20 +60,29 @@ func (p *xmlPlistParser) parseDocument() (pval cfValue, parseError error) {
 	}
 }
 
-// opening tag has been consumed
-func (p *xmlPlistParser) getNextString(element xml.StartElement) string {
+func (p *xmlPlistParser) next() xml.Token {
 	token, err := p.xmlDecoder.Token()
 	if err != nil {
 		p.error("%v", err)
 	}
+	return token
+}
+
+func (p *xmlPlistParser) skip() {
+	err := p.xmlDecoder.Skip()
+	if err != nil {
+		p.error("%v", err)
+	}
+}
+
+// opening tag has been consumed
+func (p *xmlPlistParser) getNextString(element xml.StartElement) string {
+	token := p.next()
 
 	switch token := token.(type) {
 	case xml.CharData:
 		s := string(token)
-		err := p.xmlDecoder.Skip() // consume past closing tag
-		if err != nil {
-			p.error("%v", err)
-		}
+		p.skip() // skip closing tag
 		return s
 	case xml.EndElement:
 		if token.Name.Local != element.Name.Local {
@@ -91,8 +100,7 @@ func (p *xmlPlistParser) getNextString(element xml.StartElement) string {
 }
 
 func (p *xmlPlistParser) parseStringElement(element xml.StartElement) cfString {
-	s := p.getNextString(element)
-	return cfString(s)
+	return cfString(p.getNextString(element))
 }
 
 func (p *xmlPlistParser) parseIntegerElement(element xml.StartElement) *cfNumber {
@@ -106,6 +114,7 @@ func (p *xmlPlistParser) parseIntegerElement(element xml.StartElement) *cfNumber
 		n := mustParseInt("-"+s, base, 64)
 		return &cfNumber{signed: true, value: uint64(n)}
 	}
+
 	s, base := unsignedGetBase(s)
 	n := mustParseUint(s, base, 64)
 	return &cfNumber{signed: false, value: n}
@@ -144,8 +153,6 @@ func (p *xmlPlistParser) parseDataElement(element xml.StartElement) cfData {
 	}
 	s = s[:offset]
 
-	//s = p.whitespaceReplacer.Replace(s)
-
 	l := base64.StdEncoding.DecodedLen(offset)
 	bytes := make([]uint8, l)
 
@@ -158,35 +165,43 @@ func (p *xmlPlistParser) parseDataElement(element xml.StartElement) cfData {
 	return cfData(bytes[:l])
 }
 
+func (p *xmlPlistParser) realizeKeysAndValues(keys []string, values []cfValue) cfValue {
+	if len(keys) != len(values) {
+		p.error("missing value in dictionary")
+	}
+
+	if len(keys) == 1 && keys[0] == "CF$UID" {
+		if integer, ok := values[0].(*cfNumber); ok {
+			return cfUID(integer.value)
+		}
+	}
+
+	return &cfDictionary{keys: keys, values: values}
+}
+
 func (p *xmlPlistParser) parseDictionary(element xml.StartElement) cfValue {
-	var key *string
 	keys := make([]string, 0, 32)
 	values := make([]cfValue, 0, 32)
 outer:
 	for {
-		token, err := p.xmlDecoder.Token()
-		if err != nil {
-			p.error("%v", err)
-		}
+		token := p.next()
 
 		switch token := token.(type) {
 		case xml.EndElement:
 			if token.Name.Local == "dict" {
-				break outer
+				return p.realizeKeysAndValues(keys, values)
 			} else {
 				p.mismatchedTags(element, token)
 			}
 		case xml.StartElement:
 			if token.Name.Local == "key" {
 				k := p.getNextString(token)
-				key = &k
+				keys = append(keys, k)
 			} else {
-				if key == nil {
+				if len(keys) != len(values)+1 {
 					p.error("missing key in dictionary")
 				}
-				keys = append(keys, *key)
 				values = append(values, p.parseXMLElement(token))
-				key = nil
 			}
 		case xml.CharData, xml.Comment:
 			continue outer // ignore all extraelemental data
@@ -194,30 +209,14 @@ outer:
 			p.unexpected(token)
 		}
 	}
-
-	if key != nil {
-		// state = have a key, waiting for a value
-		p.error("missing value in dictionary")
-	}
-
-	if len(keys) == 1 && keys[0] == "CF$UID" && len(values) == 1 {
-		if integer, ok := values[0].(*cfNumber); ok {
-			return cfUID(integer.value)
-		}
-	}
-
-	return &cfDictionary{keys: keys, values: values}
-
+	return nil // shouldn't get here
 }
 
 func (p *xmlPlistParser) parseArray(element xml.StartElement) *cfArray {
-	values := make([]cfValue, 0, 10)
+	values := make([]cfValue, 0, 32)
 outer:
 	for {
-		token, err := p.xmlDecoder.Token()
-		if err != nil {
-			p.error("%v", err)
-		}
+		token := p.next()
 
 		switch token := token.(type) {
 		case xml.EndElement:
@@ -241,10 +240,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 	case "plist":
 		// a <plist> should contain only one sub-element; we can safely recurse in here
 		for {
-			token, err := p.xmlDecoder.Token()
-			if err != nil {
-				p.error("%v", err)
-			}
+			token := p.next()
 
 			if el, ok := token.(xml.EndElement); ok && el.Name.Local == "plist" {
 				break
@@ -262,12 +258,8 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 	case "real":
 		return p.parseRealElement(element)
 	case "true", "false": // small enough to inline
-		err := p.xmlDecoder.Skip()
-		if err != nil {
-			p.error("%v", err)
-		}
-
 		b := element.Name.Local == "true"
+		p.skip() // skip the closing tag
 		return cfBoolean(b)
 	case "date":
 		return p.parseDateElement(element)
@@ -278,7 +270,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 	case "array":
 		return p.parseArray(element)
 	default:
-		p.error("encountered unknown element %s", element.Name.Local)
+		p.unexpected(element)
 		return nil
 	}
 }
