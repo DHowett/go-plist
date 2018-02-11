@@ -163,7 +163,7 @@ func (p *Encoder) marshal(val reflect.Value) cf.Value {
 					values[i] = subpval
 				}
 			}
-			return &cf.Array{values}
+			return cf.Array(values)
 		}
 	case reflect.Map:
 		if typ.Key().Kind() != reflect.String {

@@ -368,7 +368,7 @@ outer:
 }
 
 // the ( has already been consumed
-func (p *textPlistParser) parseArray() *cf.Array {
+func (p *textPlistParser) parseArray() cf.Array {
 	//p.ignore() // ignore the (
 	values := make([]cf.Value, 0, 32)
 outer:
@@ -394,7 +394,7 @@ outer:
 		}
 		values = append(values, pval)
 	}
-	return &cf.Array{values}
+	return cf.Array(values)
 }
 
 // the <* have already been consumed

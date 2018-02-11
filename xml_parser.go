@@ -203,7 +203,7 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cf.Value {
 				values = append(values, p.parseXMLElement(el))
 			}
 		}
-		return &cf.Array{values}
+		return cf.Array(values)
 	}
 	err := fmt.Errorf("encountered unknown element %s", element.Name.Local)
 	if p.ntags == 0 {

@@ -914,37 +914,29 @@ func setupPlistValues() {
 			"date",
 		},
 		Values: []cf.Value{
-			&cf.Array{
-				Values: []cf.Value{
-					&cf.Number{Value: 1},
-					&cf.Number{Value: 8},
-					&cf.Number{Value: 16},
-					&cf.Number{Value: 32},
-					&cf.Number{Value: 64},
-					&cf.Number{Value: 2},
-					&cf.Number{Value: 8},
-					&cf.Number{Value: 17},
-					&cf.Number{Value: 33},
-					&cf.Number{Value: 65},
-				},
+			cf.Array{
+				&cf.Number{Value: 1},
+				&cf.Number{Value: 8},
+				&cf.Number{Value: 16},
+				&cf.Number{Value: 32},
+				&cf.Number{Value: 64},
+				&cf.Number{Value: 2},
+				&cf.Number{Value: 8},
+				&cf.Number{Value: 17},
+				&cf.Number{Value: 33},
+				&cf.Number{Value: 65},
 			},
-			&cf.Array{
-				Values: []cf.Value{
-					&cf.Real{Wide: false, Value: 32.0},
-					&cf.Real{Wide: true, Value: 64.0},
-				},
+			cf.Array{
+				&cf.Real{Wide: false, Value: 32.0},
+				&cf.Real{Wide: true, Value: 64.0},
 			},
-			&cf.Array{
-				Values: []cf.Value{
-					cf.Boolean(true),
-					cf.Boolean(false),
-				},
+			cf.Array{
+				cf.Boolean(true),
+				cf.Boolean(false),
 			},
-			&cf.Array{
-				Values: []cf.Value{
-					cf.String("Hello, ASCII"),
-					cf.String("Hello, 世界"),
-				},
+			cf.Array{
+				cf.String("Hello, ASCII"),
+				cf.String("Hello, 世界"),
 			},
 			cf.Data{1, 2, 3, 4},
 			cf.Date(time.Date(2013, 11, 27, 0, 32, 0, 0, time.UTC)),

@@ -12,7 +12,7 @@ type Value interface {
 }
 
 type Dictionary struct {
-	Keys   sort.StringSlice
+	Keys   []string
 	Values []Value
 }
 
@@ -29,12 +29,11 @@ func (p *Dictionary) Len() int {
 }
 
 func (p *Dictionary) Less(i, j int) bool {
-	return p.Keys.Less(i, j)
+	return p.Keys[i] < p.Keys[j]
 }
 
 func (p *Dictionary) Swap(i, j int) {
-	p.Keys.Swap(i, j)
-	p.Values[i], p.Values[j] = p.Values[j], p.Values[i]
+	p.Keys[i], p.Keys[j], p.Values[i], p.Values[j] = p.Keys[j], p.Keys[i], p.Values[j], p.Values[i]
 }
 
 func (p *Dictionary) Sort() {
@@ -48,20 +47,18 @@ func (p *Dictionary) Range(r func(int, string, Value)) {
 	}
 }
 
-type Array struct {
-	Values []Value
-}
+type Array []Value
 
-func (*Array) TypeName() string {
+func (Array) TypeName() string {
 	return "array"
 }
 
-func (p *Array) Hash() interface{} {
-	return p
+func (p Array) Hash() interface{} {
+	return &p[0]
 }
 
-func (p *Array) Range(r func(int, Value)) {
-	for i, v := range p.Values {
+func (p Array) Range(r func(int, Value)) {
+	for i, v := range p {
 		r(i, v)
 	}
 }

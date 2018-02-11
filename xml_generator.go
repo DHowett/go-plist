@@ -53,7 +53,7 @@ func (p *xmlPlistGenerator) writeDictionary(dict *cf.Dictionary) {
 	p.xmlEncoder.EncodeToken(startElement.End())
 }
 
-func (p *xmlPlistGenerator) writeArray(a *cf.Array) {
+func (p *xmlPlistGenerator) writeArray(a cf.Array) {
 	startElement := xml.StartElement{Name: xml.Name{Local: "array"}}
 	p.xmlEncoder.EncodeToken(startElement)
 	a.Range(func(i int, v cf.Value) {
@@ -72,7 +72,7 @@ func (p *xmlPlistGenerator) writePlistValue(pval cf.Value) {
 	if dict, ok := pval.(*cf.Dictionary); ok {
 		p.writeDictionary(dict)
 		return
-	} else if a, ok := pval.(*cf.Array); ok {
+	} else if a, ok := pval.(cf.Array); ok {
 		p.writeArray(a)
 		return
 	} else if uid, ok := pval.(cf.UID); ok {

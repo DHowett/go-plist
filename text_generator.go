@@ -120,7 +120,7 @@ func (p *textPlistGenerator) writePlistValue(pval cf.Value) {
 		p.deltaIndent(-1)
 		p.writeIndent()
 		p.writer.Write([]byte(`}`))
-	case *cf.Array:
+	case cf.Array:
 		p.writer.Write([]byte(`(`))
 		p.deltaIndent(1)
 		pval.Range(func(i int, v cf.Value) {

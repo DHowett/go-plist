@@ -59,7 +59,7 @@ func (p *bplistGenerator) flattenPlistValue(pval cf.Value) {
 		pval.Range(func(i int, k string, v cf.Value) {
 			p.flattenPlistValue(v)
 		})
-	case *cf.Array:
+	case cf.Array:
 		pval.Range(func(i int, v cf.Value) {
 			p.flattenPlistValue(v)
 		})
@@ -106,8 +106,8 @@ func (p *bplistGenerator) writePlistValue(pval cf.Value) {
 	switch pval := pval.(type) {
 	case *cf.Dictionary:
 		p.writeDictionaryTag(pval)
-	case *cf.Array:
-		p.writeArrayTag(pval.Values)
+	case cf.Array:
+		p.writeArrayTag(pval)
 	case cf.String:
 		p.writeStringTag(string(pval))
 	case *cf.Number:

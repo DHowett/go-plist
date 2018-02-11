@@ -326,13 +326,13 @@ func (p *bplistParser) parseDictionaryAtOffset(off offset) *cf.Dictionary {
 	}
 }
 
-func (p *bplistParser) parseArrayAtOffset(off offset) *cf.Array {
+func (p *bplistParser) parseArrayAtOffset(off offset) cf.Array {
 	p.pushNestedObject(off)
 	defer p.popNestedObject()
 
 	// an array is just an object list
 	cnt, start := p.countForTagAtOffset(off)
-	return &cf.Array{p.parseObjectListAtOffset(start, cnt)}
+	return cf.Array(p.parseObjectListAtOffset(start, cnt))
 }
 
 func newBplistParser(r io.ReadSeeker) *bplistParser {

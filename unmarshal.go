@@ -192,19 +192,19 @@ func (p *Decoder) unmarshal(pval cf.Value, val reflect.Value) {
 				panic(incompatibleTypeError)
 			}
 		}
-	case *cf.Array:
+	case cf.Array:
 		p.unmarshalArray(pval, val)
 	case *cf.Dictionary:
 		p.unmarshalDictionary(pval, val)
 	}
 }
 
-func (p *Decoder) unmarshalArray(a *cf.Array, val reflect.Value) {
+func (p *Decoder) unmarshalArray(a cf.Array, val reflect.Value) {
 	var n int
 	if val.Kind() == reflect.Slice {
 		// Slice of element values.
 		// Grow slice.
-		cnt := len(a.Values) + val.Len()
+		cnt := len(a) + val.Len()
 		if cnt >= val.Cap() {
 			ncap := 2 * cnt
 			if ncap < 4 {
@@ -217,8 +217,8 @@ func (p *Decoder) unmarshalArray(a *cf.Array, val reflect.Value) {
 		n = val.Len()
 		val.SetLen(cnt)
 	} else if val.Kind() == reflect.Array {
-		if len(a.Values) > val.Cap() {
-			panic(fmt.Errorf("plist: attempted to unmarshal %d values into an array of size %d", len(a.Values), val.Cap()))
+		if len(a) > val.Cap() {
+			panic(fmt.Errorf("plist: attempted to unmarshal %d values into an array of size %d", len(a), val.Cap()))
 		}
 	} else {
 		panic(&incompatibleDecodeTypeError{val.Type(), a.TypeName()})
@@ -287,7 +287,7 @@ func (p *Decoder) valueInterface(pval cf.Value) interface{} {
 		}
 	case cf.Boolean:
 		return bool(pval)
-	case *cf.Array:
+	case cf.Array:
 		return p.arrayInterface(pval)
 	case *cf.Dictionary:
 		return p.dictionaryInterface(pval)
@@ -301,8 +301,8 @@ func (p *Decoder) valueInterface(pval cf.Value) interface{} {
 	return nil
 }
 
-func (p *Decoder) arrayInterface(a *cf.Array) []interface{} {
-	out := make([]interface{}, len(a.Values))
+func (p *Decoder) arrayInterface(a cf.Array) []interface{} {
+	out := make([]interface{}, len(a))
 	a.Range(func(i int, subv cf.Value) {
 		out[i] = p.valueInterface(subv)
 	})
