@@ -111,7 +111,7 @@ func (p *bplistGenerator) writePlistValue(pval cf.Value) {
 	case cf.String:
 		p.writeStringTag(string(pval))
 	case *cf.Number:
-		p.writeIntTag(pval.Value)
+		p.writeIntTag(pval.Signed, pval.Value)
 	case *cf.Real:
 		if pval.Wide {
 			p.writeRealTag(pval.Value, 64)
@@ -156,7 +156,7 @@ func (p *bplistGenerator) writeBoolTag(v bool) {
 	binary.Write(p.writer, binary.BigEndian, tag)
 }
 
-func (p *bplistGenerator) writeIntTag(n uint64) {
+func (p *bplistGenerator) writeIntTag(signed bool, n uint64) {
 	var tag uint8
 	var val interface{}
 	switch {
@@ -169,12 +169,25 @@ func (p *bplistGenerator) writeIntTag(n uint64) {
 	case n <= uint64(0xffffffff):
 		val = uint32(n)
 		tag = bpTagInteger | 0x2
+	case n > uint64(0x7fffffffffffffff) && !signed:
+		// 64-bit values are always *signed* in format 00.
+		// Any unsigned value that doesn't intersect with the signed
+		// range must be sign-extended and stored as a SInt128
+		val = n
+		tag = bpTagInteger | 0x4
 	default:
 		val = n
 		tag = bpTagInteger | 0x3
 	}
 
 	binary.Write(p.writer, binary.BigEndian, tag)
+	if tag&0xF == 0x4 {
+		// SInt128; in the absence of true 128-bit integers in Go,
+		// we'll just fake the top half. We only got here because
+		// we had an unsigned 64-bit int that didn't fit,
+		// so sign extend it with zeroes.
+		binary.Write(p.writer, binary.BigEndian, uint64(0))
+	}
 	binary.Write(p.writer, binary.BigEndian, val)
 }
 
@@ -218,7 +231,7 @@ func (p *bplistGenerator) writeCountedTag(tag uint8, count uint64) {
 	binary.Write(p.writer, binary.BigEndian, marker)
 
 	if count >= 0xF {
-		p.writeIntTag(count)
+		p.writeIntTag(false, count)
 	}
 }
 
