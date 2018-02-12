@@ -11,14 +11,12 @@ import (
 )
 
 type xmlPlistParser struct {
-	reader     io.Reader
 	xmlDecoder *xml.Decoder
-	//whitespaceReplacer *strings.Replacer
 }
 
 func (p *xmlPlistParser) error(e string, args ...interface{}) {
 	off := p.xmlDecoder.InputOffset()
-	panic(fmt.Errorf("%s at offset %d", fmt.Sprintf(e, args...), off))
+	panic(fmt.Errorf("offset %d: %s", off, fmt.Sprintf(e, args...)))
 }
 
 func (p *xmlPlistParser) mismatchedTags(start xml.StartElement, end xml.EndElement) {
@@ -44,7 +42,7 @@ func (p *xmlPlistParser) parseDocument() (pval cfValue, parseError error) {
 		}
 	}()
 	for {
-		if token, err := p.xmlDecoder.Token(); err == nil {
+		if token, err := p.xmlDecoder.RawToken(); err == nil {
 			if element, ok := token.(xml.StartElement); ok {
 				pval = p.parseXMLElement(element)
 				if pval == nil {
@@ -61,7 +59,7 @@ func (p *xmlPlistParser) parseDocument() (pval cfValue, parseError error) {
 }
 
 func (p *xmlPlistParser) next() xml.Token {
-	token, err := p.xmlDecoder.Token()
+	token, err := p.xmlDecoder.RawToken()
 	if err != nil {
 		p.error("%v", err)
 	}
@@ -69,7 +67,7 @@ func (p *xmlPlistParser) next() xml.Token {
 }
 
 func (p *xmlPlistParser) skip() {
-	err := p.xmlDecoder.Skip()
+	_, err := p.xmlDecoder.RawToken()
 	if err != nil {
 		p.error("%v", err)
 	}
@@ -77,25 +75,25 @@ func (p *xmlPlistParser) skip() {
 
 // opening tag has been consumed
 func (p *xmlPlistParser) getNextString(element xml.StartElement) string {
-	token := p.next()
+	var s string
 
-	switch token := token.(type) {
-	case xml.CharData:
-		s := string(token)
-		p.skip() // skip closing tag
-		return s
-	case xml.EndElement:
-		if token.Name.Local != element.Name.Local {
-			p.mismatchedTags(element, token)
+	for {
+		token := p.next()
+		switch token := token.(type) {
+		case xml.CharData:
+			s = string(token)
+		case xml.EndElement:
+			if token.Name.Local != element.Name.Local {
+				p.mismatchedTags(element, token)
+			}
+			return s
+		case xml.Comment:
+			// nothing
+		default:
+			p.unexpected(token)
 		}
-		return "" // empty string!
-	case xml.Comment:
-		// nothing
-	default:
-		p.unexpected(token)
 	}
 
-	p.unexpected(token)
 	return ""
 }
 
@@ -276,5 +274,5 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 }
 
 func newXMLPlistParser(r io.Reader) *xmlPlistParser {
-	return &xmlPlistParser{r, xml.NewDecoder(r)} //, strings.NewReplacer("\t", "", "\n", "", " ", "", "\r", "")}
+	return &xmlPlistParser{xml.NewDecoder(r)}
 }
