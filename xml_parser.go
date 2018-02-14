@@ -19,8 +19,8 @@ func (p *xmlPlistParser) error(e string, args ...interface{}) {
 	panic(fmt.Errorf("offset %d: %s", off, fmt.Sprintf(e, args...)))
 }
 
-func (p *xmlPlistParser) mismatchedTags(start xml.StartElement, end xml.EndElement) {
-	p.error("mismatched opening/closing tags <%s> and </%s>", start.Name.Local, end.Name.Local)
+func (p *xmlPlistParser) mismatchedTags(start string, end string) {
+	p.error("mismatched opening/closing tags <%s> and </%s>", start, end)
 }
 
 func (p *xmlPlistParser) unexpected(token xml.Token) {
@@ -59,11 +59,33 @@ func (p *xmlPlistParser) parseDocument() (pval cfValue, parseError error) {
 }
 
 func (p *xmlPlistParser) next() xml.Token {
-	token, err := p.xmlDecoder.RawToken()
-	if err != nil {
-		p.error("%v", err)
+	for {
+		token, err := p.xmlDecoder.RawToken()
+		if err != nil {
+			p.error("%v", err)
+		}
+		if _, ok := token.(xml.Comment); ok {
+			continue
+		}
+		if s, ok := token.(xml.CharData); ok {
+			b, e := 0, len(s)-1
+			for ; b < e; b++ {
+				if !whitespace.ContainsByte(s[b]) {
+					break
+				}
+			}
+			for ; e > b; e-- {
+				if !whitespace.ContainsByte(s[e]) {
+					break
+				}
+			}
+			if b == e {
+				continue
+			}
+			token = s[b : e+1]
+		}
+		return token
 	}
-	return token
 }
 
 func (p *xmlPlistParser) skip() {
@@ -73,27 +95,37 @@ func (p *xmlPlistParser) skip() {
 	}
 }
 
+func (p *xmlPlistParser) expectString() string {
+	token := p.next()
+	if s, ok := token.(xml.CharData); ok {
+		return string(s)
+	}
+	p.unexpected(token)
+	return ""
+}
+
+func (p *xmlPlistParser) expectMatchingClosure(name string) {
+	token := p.next()
+	if e, ok := token.(xml.EndElement); ok {
+		if e.Name.Local != name {
+			p.mismatchedTags(name, e.Name.Local)
+		}
+		return
+	}
+	p.unexpected(token)
+}
+
 // opening tag has been consumed
 func (p *xmlPlistParser) getNextString(element xml.StartElement) string {
-	var s string
-
-	for {
-		token := p.next()
-		switch token := token.(type) {
-		case xml.CharData:
-			s = string(token)
-		case xml.EndElement:
-			if token.Name.Local != element.Name.Local {
-				p.mismatchedTags(element, token)
-			}
-			return s
-		case xml.Comment:
-			// nothing
-		default:
-			p.unexpected(token)
-		}
+	token := p.next()
+	if _, ok := token.(xml.EndElement); ok {
+		return ""
+	} else if s, ok := token.(xml.CharData); ok {
+		str := string(s)
+		p.expectMatchingClosure(element.Name.Local)
+		return str
 	}
-
+	p.unexpected(token)
 	return ""
 }
 
@@ -120,6 +152,9 @@ func (p *xmlPlistParser) parseIntegerElement(element xml.StartElement) *cfNumber
 
 func (p *xmlPlistParser) parseRealElement(element xml.StartElement) *cfReal {
 	s := p.getNextString(element)
+	if len(s) == 0 {
+		p.error("empty <real/>")
+	}
 
 	n := mustParseFloat(s, 64)
 	return &cfReal{wide: true, value: n}
@@ -128,6 +163,9 @@ func (p *xmlPlistParser) parseRealElement(element xml.StartElement) *cfReal {
 
 func (p *xmlPlistParser) parseDateElement(element xml.StartElement) cfDate {
 	s := p.getNextString(element)
+	if len(s) == 0 {
+		p.error("empty <date/>")
+	}
 
 	t, err := time.ParseInLocation(time.RFC3339, s, time.UTC)
 	if err != nil {
@@ -180,7 +218,6 @@ func (p *xmlPlistParser) realizeKeysAndValues(keys []string, values []cfValue) c
 func (p *xmlPlistParser) parseDictionary(element xml.StartElement) cfValue {
 	keys := make([]string, 0, 32)
 	values := make([]cfValue, 0, 32)
-outer:
 	for {
 		token := p.next()
 
@@ -189,7 +226,7 @@ outer:
 			if token.Name.Local == "dict" {
 				return p.realizeKeysAndValues(keys, values)
 			} else {
-				p.mismatchedTags(element, token)
+				p.mismatchedTags(element.Name.Local, token.Name.Local)
 			}
 		case xml.StartElement:
 			if token.Name.Local == "key" {
@@ -201,8 +238,6 @@ outer:
 				}
 				values = append(values, p.parseXMLElement(token))
 			}
-		case xml.CharData, xml.Comment:
-			continue outer // ignore all extraelemental data
 		default:
 			p.unexpected(token)
 		}
@@ -221,11 +256,9 @@ outer:
 			if token.Name.Local == "array" {
 				break outer
 			}
-			p.mismatchedTags(element, token)
+			p.mismatchedTags(element.Name.Local, token.Name.Local)
 		case xml.StartElement:
 			values = append(values, p.parseXMLElement(token))
-		case xml.CharData, xml.Comment:
-			continue outer // ignore all extraelemental data
 		default:
 			p.unexpected(token)
 		}
