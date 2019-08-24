@@ -26,6 +26,18 @@ go-test-appengine:latest:
     script:
         - go test -tags appengine
 
+go-test:1.12:
+    <<: *template-go-test
+    image: golang:1.12-alpine
+
+go-test:1.10:
+    <<: *template-go-test
+    image: golang:1.10-alpine
+
+go-test:1.8:
+    <<: *template-go-test
+    image: golang:1.8-alpine
+
 go-test:1.6:
     <<: *template-go-test
     image: golang:1.6-alpine
