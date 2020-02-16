@@ -2,6 +2,7 @@ package plist
 
 import (
 	"encoding/binary"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -59,6 +60,26 @@ func guessEncodingAndConvert(buffer []byte) (string, error) {
 
 	// fallback: assume ASCII (not great!)
 	return zeroCopy8BitString(buffer, 0, len(buffer)), nil
+}
+
+func keepCharValidBase64(c rune) rune {
+	// This will be optimized out as something static, I hope?
+	var valid [128]bool
+	for ch := 'a'; ch <= 'z'; ch++ {
+		valid[ch] = true;
+	}
+	for ch := 'A'; ch <= 'Z'; ch++ {
+		valid[ch] = true;
+	}
+	ch['/'] = true;
+	ch['+'] = true;
+	ch['='] = true;
+
+	if c < 128 && ch[c] {
+		return c
+	} else {
+		return -1
+	}
 }
 
 func (p *textPlistParser) parseDocument() (pval cfValue, parseError error) {
@@ -435,6 +456,28 @@ func (p *textPlistParser) parseGNUStepValue() cfValue {
 	return nil
 }
 
+// the <[ have already been consumed
+func (p *textPlistParser) parseGNUStepBase64() cfData {
+	p.scanUntil(']')
+	v := p.emit()
+
+	if p.next() != ']' {
+		p.error("invalid GNUStep base64 data (expected ']')")
+	}
+	
+	if p.next() != '>' {
+		p.error("invalid GNUStep base64 data (expected '>')")
+	}
+
+	// Emulate NSDataBase64DecodingIgnoreUnknownCharacters
+	v_filt = Strings.Map(keepCharValidBase64, v)
+	data, err := base64.StdEncoding.DecodeString(v_filt)
+	if err != nil {
+		p.error("invalid GNUStep base64 data: " + err.Error())
+	}
+	return cfData(data)
+}
+
 // The < has already been consumed
 func (p *textPlistParser) parseHexData() cfData {
 	buf := make([]byte, 256)
@@ -487,13 +530,17 @@ func (p *textPlistParser) parsePlistValue() cfValue {
 		case eof:
 			return &cfDictionary{}
 		case '<':
-			if p.next() == '*' {
+			switch p.next() {
+			case '*':
 				p.format = GNUStepFormat
 				return p.parseGNUStepValue()
+			case '[':
+				p.format = GNUStepFormat
+				return p.parseGNUStepBase64()
+			default:
+				p.backup()
+				return p.parseHexData()
 			}
-
-			p.backup()
-			return p.parseHexData()
 		case '"':
 			return p.parseQuotedString()
 		case '{':
