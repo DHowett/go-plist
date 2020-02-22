@@ -420,13 +420,18 @@ outer:
 func (p *textPlistParser) parseGNUStepValue() cfValue {
 	typ := p.next()
 	p.ignore()
+
+	if p.peek() == '"' {
+		p.next() // tolerate quoted values
+	}
 	p.scanUntil('>')
 
 	if typ == eof || typ == '>' || p.empty() || p.peek() == eof {
 		p.error("invalid GNUStep extended value")
 	}
 
-	v := p.emit()
+	// tolerate quoted values
+	v := strings.TrimSuffix(p.emit(), "\"")
 	p.next() // consume the >
 
 	switch typ {
