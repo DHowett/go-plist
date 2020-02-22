@@ -470,7 +470,7 @@ func (p *textPlistParser) parseGNUStepBase64() cfData {
 	}
 
 	// Emulate NSDataBase64DecodingIgnoreUnknownCharacters
-	v_filt = Strings.Map(keepCharValidBase64, v)
+	v_filt = strings.Map(keepCharValidBase64, v)
 	data, err := base64.StdEncoding.DecodeString(v_filt)
 	if err != nil {
 		p.error("invalid GNUStep base64 data: " + err.Error())
