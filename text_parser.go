@@ -312,7 +312,7 @@ func (p *textPlistParser) parseUnquotedString() cfString {
 }
 
 // the { has already been consumed
-func (p *textPlistParser) parseDictionary(ignoreEof bool) *cfDictionary {
+func (p *textPlistParser) parseDictionary(ignoreEof bool) cfValue {
 	//p.ignore() // ignore the {
 	var keypv cfValue
 	keys := make([]string, 0, 32)
@@ -362,7 +362,8 @@ outer:
 		values = append(values, val)
 	}
 
-	return &cfDictionary{keys: keys, values: values}
+	dict := &cfDictionary{keys: keys, values: values}
+	return dict.maybeUID(p.format == OpenStepFormat)
 }
 
 // the ( has already been consumed
