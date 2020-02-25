@@ -142,7 +142,7 @@ func (p cfUID) toDict() *cfDictionary {
 		keys:   []string{cfUIDMagic},
 		values: []cfValue{cfNumber{
 			signed: false,
-			value:  uint64(p)
+			value:  uint64(p),
 		}},
 	}
 }
