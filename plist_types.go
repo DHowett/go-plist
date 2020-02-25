@@ -48,13 +48,14 @@ func (p *cfDictionary) sort() {
 
 func (p *cfDictionary) maybeUID(lax bool) cfValue {
 	if len(p.keys) == 1 && p.keys[0] == "CF$UID" && len(p.values) == 1 {
-		if integer, ok := p.values[0].(*cfNumber); ok {
+		pval := p.values[0]
+		if integer, ok := pval.(*cfNumber); ok {
 			return cfUID(integer.value)
 		}
 		// Openstep only has cfString. Act like the unmarshaller a bit.
 		if lax {
 			if str, ok := pval.(cfString); ok {
-				if i, err := strconv.ParseUint(str, 10, 64); err == nil {
+				if i, err := strconv.ParseUint(string(str), 10, 64); err == nil {
 					return cfUID(i)
 				}
 			}
@@ -139,8 +140,8 @@ func (p cfUID) hash() interface{} {
 
 func (p cfUID) toDict() *cfDictionary {
 	return &cfDictionary{
-		keys:   []string{cfUIDMagic},
-		values: []cfValue{cfNumber{
+		keys: []string{cfUIDMagic},
+		values: []cfValue{&cfNumber{
 			signed: false,
 			value:  uint64(p),
 		}},
