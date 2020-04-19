@@ -36,9 +36,17 @@ var InvalidTextPlists = []struct {
 	{"Truncated quoted string", `"hi`},
 	{"Garbage after end of non-string", "<ab> cde"},
 	{"Broken UTF-16", "\xFE\xFF\x01"},
+	{"Truncated GNUStep data", "<"},
 	{"Truncated GNUStep base64 data (missing ])", `<[33==`},
 	{"Truncated GNUStep base64 data (missing >)", `<[33==]`},
 	{"Invalid GNUStep base64 data", `<[3]>`}, // TODO: this is actually valid
+	{"GNUStep extended value with EOF before type", "<*"},
+	{"GNUStep extended value terminated before type", "<*>"},
+	{"Empty GNUStep extended value", "<*I>"},
+	{"Unterminated GNUStep quoted value", "<*D\"5>"},
+	{"Unterminated GNUStep quoted value (EOF)", "<*D\""},
+	{"Poorly-terminated GNUStep quoted value", "<*D\">"},
+	{"Empty GNUStep quoted extended value", "<*D\"\">"},
 }
 
 func TestInvalidTextPlists(t *testing.T) {

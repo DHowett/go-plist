@@ -409,15 +409,39 @@ outer:
 // the <* have already been consumed
 func (p *textPlistParser) parseGNUStepValue() cfValue {
 	typ := p.next()
+
+	if typ == '>' || typ == eof { // <*>, <*EOF
+		p.error("invalid GNUStep extended value")
+	}
+
+	if typ != 'I' && typ != 'R' && typ != 'B' && typ != 'D' {
+		// early out: no need to collect the value if we'll fail to understand it
+		p.error("unknown GNUStep extended value type `" + string(typ) + "'")
+	}
+
+	if p.peek() == '"' { // <*x"
+		p.next()
+	}
+
 	p.ignore()
 	p.scanUntil('>')
 
-	if typ == eof || typ == '>' || p.empty() || p.peek() == eof {
-		p.error("invalid GNUStep extended value")
+	if p.peek() == eof { // <*xEOF or <*x"EOF
+		p.error("unterminated GNUStep extended value")
+	}
+
+	if p.empty() { // <*x>, <*x"">
+		p.error("empty GNUStep extended value")
 	}
 
 	v := p.emit()
 	p.next() // consume the >
+
+	if v[len(v)-1] == '"' {
+		// GNUStep tolerates malformed quoted values, as in <*I5"> and <*I"5>
+		// It purportedly does so by stripping the trailing quote
+		v = v[:len(v)-1]
+	}
 
 	switch typ {
 	case 'I':
@@ -442,7 +466,7 @@ func (p *textPlistParser) parseGNUStepValue() cfValue {
 
 		return cfDate(t.In(time.UTC))
 	}
-	p.error("invalid GNUStep type " + string(typ))
+	// We should never get here; we checked the type above
 	return nil
 }
 

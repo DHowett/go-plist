@@ -942,6 +942,14 @@ var tests = []TestData{
 		// We are not encoding base64 for GNUstep yet
 		SkipEncode: map[int]bool{GNUStepFormat: true},
 	},
+	{
+		Name:  "Text document with quoted GNUstep values",
+		Value: []interface{}{uint64(1048576), uint64(1234), true},
+		Documents: map[int][]byte{
+			GNUStepFormat: []byte(`(<*I"1048576">, <*I"1234>, <*B"Y>)`),
+		},
+		SkipEncode: map[int]bool{GNUStepFormat: true},
+	},
 }
 
 type EverythingTestData struct {
