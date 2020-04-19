@@ -2,6 +2,7 @@
 // @see https://github.com/apple/swift-corelibs-foundation/blob/master/CoreFoundation/Parsing.subproj/CFOldStylePList.c
 // @see https://github.com/gnustep/libs-base/blob/master/Source/NSPropertyList.m
 // This parser also handles strings files.
+
 package plist
 
 import (
