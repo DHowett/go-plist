@@ -36,6 +36,9 @@ var InvalidTextPlists = []struct {
 	{"Truncated quoted string", `"hi`},
 	{"Garbage after end of non-string", "<ab> cde"},
 	{"Broken UTF-16", "\xFE\xFF\x01"},
+	{"Truncated GNUStep base64 data (missing ])", `<[33==`},
+	{"Truncated GNUStep base64 data (missing >)", `<[33==]`},
+	{"Invalid GNUStep base64 data", `<[3]>`}, // TODO: this is actually valid
 }
 
 func TestInvalidTextPlists(t *testing.T) {

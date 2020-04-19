@@ -286,10 +286,12 @@ var tests = []TestData{
 		Value: []byte{'h', 'e', 'l', 'l', 'o'},
 		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`<68656c6c 6f>`),
-			GNUStepFormat:  []byte(`<68656c6c 6f>`),
+			GNUStepFormat:  []byte(`<[aGVsbG8=]>`),
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><data>aGVsbG8=</data></plist>`),
 			BinaryFormat:   []byte{98, 112, 108, 105, 115, 116, 48, 48, 69, 104, 101, 108, 108, 111, 8, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14},
 		},
+		// We are not encoding base64 for GNUstep yet
+		SkipEncode: map[int]bool{GNUStepFormat: true},
 	},
 	{
 		Name:  "Arbitrary Integer Slice",
@@ -927,6 +929,18 @@ var tests = []TestData{
 			},
 		},
 		SkipEncode: map[int]bool{XMLFormat: true, OpenStepFormat: true, GNUStepFormat: true, BinaryFormat: true},
+	},
+	{
+		Name: "GNUStep base64 data ignoring invalid chars",
+		Value: [][]byte{
+			{'h', 'e', 'l', 'l', 'o'},
+			{'h', 'e', 'l', 'l', 'o'},
+		},
+		Documents: map[int][]byte{
+			GNUStepFormat: []byte(`(<[aGVs^^bG8=]>,<[ a G V s b G 8 = ]>)`),
+		},
+		// We are not encoding base64 for GNUstep yet
+		SkipEncode: map[int]bool{GNUStepFormat: true},
 	},
 }
 
