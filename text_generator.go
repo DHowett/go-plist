@@ -1,6 +1,7 @@
 package plist
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"io"
 	"strconv"
@@ -15,6 +16,8 @@ type textPlistGenerator struct {
 
 	indent string
 	depth  int
+
+	gsGenBase64 bool
 
 	dictKvDelimiter, dictEntryDelimiter, arrayDelimiter []byte
 }
@@ -99,6 +102,37 @@ func (p *textPlistGenerator) writeIndent() {
 	}
 }
 
+func (p *textPlistGenerator) writeDataOpenStepHex(b []byte) {
+	var hexencoded [9]byte
+	var l int
+	var asc = 9
+	hexencoded[8] = ' '
+
+	p.writer.Write([]byte(`<`))
+	for i := 0; i < len(b); i += 4 {
+		l = i + 4
+		if l >= len(b) {
+			l = len(b)
+			// We no longer need the space - or the rest of the buffer.
+			// (we used >= above to get this part without another conditional :P)
+			asc = (l - i) * 2
+		}
+		// Fill the buffer (only up to 8 characters, to preserve the space we implicitly include
+		// at the end of every encode)
+		hex.Encode(hexencoded[:8], b[i:l])
+		io.WriteString(p.writer, string(hexencoded[:asc]))
+	}
+	p.writer.Write([]byte(`>`))
+}
+
+func (p *textPlistGenerator) writeDataGNUStepBase64(b []byte) {
+	p.writer.Write([]byte(`<[`))
+	enc := base64.NewEncoder(base64.StdEncoding, p.writer)
+	enc.Write(b)
+	enc.Close()
+	p.writer.Write([]byte(`]>`))
+}
+
 func (p *textPlistGenerator) writePlistValue(pval cfValue) {
 	if pval == nil {
 		return
@@ -168,27 +202,11 @@ func (p *textPlistGenerator) writePlistValue(pval cfValue) {
 			}
 		}
 	case cfData:
-		var hexencoded [9]byte
-		var l int
-		var asc = 9
-		hexencoded[8] = ' '
-
-		p.writer.Write([]byte(`<`))
-		b := []byte(pval)
-		for i := 0; i < len(b); i += 4 {
-			l = i + 4
-			if l >= len(b) {
-				l = len(b)
-				// We no longer need the space - or the rest of the buffer.
-				// (we used >= above to get this part without another conditional :P)
-				asc = (l - i) * 2
-			}
-			// Fill the buffer (only up to 8 characters, to preserve the space we implicitly include
-			// at the end of every encode)
-			hex.Encode(hexencoded[:8], b[i:l])
-			io.WriteString(p.writer, string(hexencoded[:asc]))
+		if !p.gsGenBase64 {
+			p.writeDataOpenStepHex([]byte(pval))
+		} else {
+			p.writeDataGNUStepBase64([]byte(pval))
 		}
-		p.writer.Write([]byte(`>`))
 	case cfDate:
 		if p.format == GNUStepFormat {
 			p.writer.Write([]byte(`<*D`))
@@ -219,6 +237,14 @@ func (p *textPlistGenerator) generatorSetIndent(i string) (bool, error) {
 
 func (t *textPlistGenerator) unmarshalerSetLax(_ bool) (bool, error) {
 	return false, optionInvalidError
+}
+
+func (t *textPlistGenerator) generatorSetGNUStepBase64(val bool) (bool, error) {
+	if t.format != GNUStepFormat {
+		return false, optionInvalidError
+	}
+	t.gsGenBase64 = val
+	return true, nil
 }
 
 func (t *textPlistGenerator) encoderSetFormat(_ int) (bool, error) {

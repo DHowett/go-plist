@@ -153,3 +153,26 @@ func ExampleMarshal_gnustep() {
 	// 	size = <*I4398046511104>;
 	// }
 }
+
+func ExampleMarshal_withOptions() {
+	type Person struct {
+		Name  string
+		Photo []byte
+	}
+
+	data := &Person{
+		Name:  "Dustin",
+		Photo: []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A /* ... */},
+	}
+
+	plist, err := Marshal(data, GNUStepFormat, Indent("\t"), GNUStepUseBase64Data())
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(string(plist))
+
+	// Output: {
+	// 	Name = Dustin;
+	// 	Photo = <[iVBORw0K]>;
+	// }
+}

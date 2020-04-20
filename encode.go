@@ -26,6 +26,10 @@ func (e *Encoder) unmarshalerSetLax(_ bool) (bool, error) {
 	return false, nil
 }
 
+func (e *Encoder) generatorSetGNUStepBase64(_ bool) (bool, error) {
+	return false, nil
+}
+
 func (e *Encoder) generatorSetIndent(_ string) (bool, error) {
 	return false, nil
 }

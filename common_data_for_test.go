@@ -292,8 +292,9 @@ var tests = []TestData{
 			XMLFormat:      []byte(xmlPreamble + `<plist version="1.0"><data>aGVsbG8=</data></plist>`),
 			BinaryFormat:   []byte{98, 112, 108, 105, 115, 116, 48, 48, 69, 104, 101, 108, 108, 111, 8, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 14},
 		},
-		// We are not encoding base64 for GNUstep yet
-		SkipEncode: map[int]bool{GNUStepFormat: true},
+		EncoderOptions: map[int][]Option{
+			GNUStepFormat: []Option{GNUStepUseBase64Data()},
+		},
 	},
 	{
 		Name:  "Arbitrary Integer Slice",
