@@ -33,12 +33,6 @@ var encodeOptionCases = []encodeOptionCase{
 			return err == nil && buf[2] == '*'
 		},
 	},
-	{
-		Name:     "Invalid Option for Format",
-		Data:     "1",
-		Options:  []Option{Format(OpenStepFormat), BinaryPropertyListVersion(BinaryVersion1_0)},
-		Validate: validateThrowsError,
-	},
 }
 
 func TestEncoderOptions(t *testing.T) {
