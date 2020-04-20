@@ -18,7 +18,21 @@ type Encoder struct {
 	writer io.Writer
 	format int
 
-	indent string
+	options []Option
+	indent  string
+}
+
+func (e *Encoder) unmarshalerSetLax(_ bool) (bool, error) {
+	return false, nil
+}
+
+func (e *Encoder) generatorSetIndent(_ string) (bool, error) {
+	return false, nil
+}
+
+func (e *Encoder) encoderSetFormat(format int) (bool, error) {
+	e.format = format
+	return true, nil
 }
 
 // Encode writes the property list encoding of v to the stream.
@@ -37,6 +51,17 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 		panic(errors.New("plist: no root element to encode"))
 	}
 
+	generatorOpts := make([]Option, 0, len(p.options))
+	for _, opt := range p.options {
+		// Apply options to ourself first (if possible)
+		// Our option handlers don't throw errors
+		applied, _ := opt(p)
+
+		if !applied {
+			generatorOpts = append(generatorOpts, opt)
+		}
+	}
+
 	var g generator
 	switch p.format {
 	case XMLFormat:
@@ -47,6 +72,17 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 		g = newTextPlistGenerator(p.writer, p.format)
 	}
 	g.Indent(p.indent)
+
+	// Apply all options after format and indent (so the last one wins out if the user specifies
+	// MarshalIndent(xxx, "\t", Indent("lol"))
+	for _, opt := range generatorOpts {
+		if receiver, ok := g.(optionReceiver); ok {
+			_, err = opt(receiver)
+			if err != nil {
+				return
+			}
+		}
+	}
 	g.generateDocument(pval)
 	return
 }
@@ -57,23 +93,31 @@ func (p *Encoder) Indent(indent string) {
 	p.indent = indent
 }
 
+func newEncoderWithOptions(w io.Writer, options ...Option) *Encoder {
+	return &Encoder{
+		writer:  w,
+		format:  0,
+		options: options,
+	}
+}
+
 // NewEncoder returns an Encoder that writes an XML property list to w.
-func NewEncoder(w io.Writer) *Encoder {
-	return NewEncoderForFormat(w, XMLFormat)
+func NewEncoder(w io.Writer, options ...Option) *Encoder {
+	return NewEncoderForFormat(w, XMLFormat, options...)
 }
 
 // NewEncoderForFormat returns an Encoder that writes a property list to w in the specified format.
 // Pass AutomaticFormat to allow the library to choose the best encoding (currently BinaryFormat).
-func NewEncoderForFormat(w io.Writer, format int) *Encoder {
-	return &Encoder{
-		writer: w,
-		format: format,
-	}
+func NewEncoderForFormat(w io.Writer, format int, options ...Option) *Encoder {
+	opts := make([]Option, 0, len(options)+1)
+	opts = append(opts, Format(format))
+	opts = append(opts, options...)
+	return newEncoderWithOptions(w, opts...)
 }
 
 // NewBinaryEncoder returns an Encoder that writes a binary property list to w.
-func NewBinaryEncoder(w io.Writer) *Encoder {
-	return NewEncoderForFormat(w, BinaryFormat)
+func NewBinaryEncoder(w io.Writer, options ...Option) *Encoder {
+	return NewEncoderForFormat(w, BinaryFormat, options...)
 }
 
 // Marshal returns the property list encoding of v in the specified format.
@@ -109,15 +153,15 @@ func NewBinaryEncoder(w io.Writer) *Encoder {
 // Pointer values encode as the value pointed to.
 //
 // Channel, complex and function values cannot be encoded. Any attempt to do so causes Marshal to return an error.
-func Marshal(v interface{}, format int) ([]byte, error) {
-	return MarshalIndent(v, format, "")
+func Marshal(v interface{}, format int, options ...Option) ([]byte, error) {
+	return MarshalIndent(v, format, "", options...)
 }
 
 // MarshalIndent works like Marshal, but each property list element
 // begins on a new line and is preceded by one or more copies of indent according to its nesting depth.
-func MarshalIndent(v interface{}, format int, indent string) ([]byte, error) {
+func MarshalIndent(v interface{}, format int, indent string, options ...Option) ([]byte, error) {
 	buf := &bytes.Buffer{}
-	enc := NewEncoderForFormat(buf, format)
+	enc := NewEncoderForFormat(buf, format, options...)
 	enc.Indent(indent)
 	if err := enc.Encode(v); err != nil {
 		return nil, err

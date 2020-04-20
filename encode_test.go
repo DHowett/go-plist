@@ -32,7 +32,7 @@ func TestEncode(t *testing.T) {
 					continue
 				}
 				subtest(t, FormatNames[fmt], func(t *testing.T) {
-					encoded, err := Marshal(test.Value, fmt)
+					encoded, err := Marshal(test.Value, fmt, test.EncoderOptions[fmt]...)
 
 					if err != nil {
 						t.Error(err)

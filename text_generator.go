@@ -212,6 +212,19 @@ func (p *textPlistGenerator) Indent(i string) {
 	}
 }
 
+func (p *textPlistGenerator) generatorSetIndent(i string) (bool, error) {
+	p.Indent(i)
+	return true, nil
+}
+
+func (t *textPlistGenerator) unmarshalerSetLax(_ bool) (bool, error) {
+	return false, optionInvalidError
+}
+
+func (t *textPlistGenerator) encoderSetFormat(_ int) (bool, error) {
+	return false, optionInvalidError
+}
+
 func newTextPlistGenerator(w io.Writer, format int) *textPlistGenerator {
 	table := &osQuotable
 	if format == GNUStepFormat {
