@@ -292,8 +292,8 @@ func (p *bplistGenerator) writeArrayTag(arr []cfValue) {
 	}
 }
 
-func (p *bplistGenerator) Indent(i string) {
-	// There's nothing to indent.
+func (p *bplistGenerator) Indent(i string, ll int) {
+	// There's nothing to indent and nothing to set a line length for
 }
 
 func newBplistGenerator(w io.Writer) *bplistGenerator {

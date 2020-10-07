@@ -44,6 +44,7 @@ type xmlPlistGenerator struct {
 	indent     string
 	depth      int
 	putNewline bool
+	lineLength int
 }
 
 func (p *xmlPlistGenerator) generateDocument(root cfValue) {
@@ -71,6 +72,10 @@ func (p *xmlPlistGenerator) closeTag(n string) {
 }
 
 func (p *xmlPlistGenerator) element(n string, v string) {
+	if p.lineLength > 0 {
+		p.elementWithLineLength(n, v)
+		return
+	}
 	p.writeIndent(0)
 	if len(v) == 0 {
 		p.WriteByte('<')
@@ -90,6 +95,24 @@ func (p *xmlPlistGenerator) element(n string, v string) {
 		p.WriteString(n)
 		p.WriteByte('>')
 	}
+}
+
+func (p *xmlPlistGenerator) elementWithLineLength(n string, v string) {
+	p.openTag(n)
+
+	var upperBound int
+	// to avoid additional newlines on integer multiples of len(v), we shift the length to -1 so that
+	// the number of newlines increases one step later than on the integer multiple
+	for i := 0; i <= (len(v)-1)/p.lineLength; i++ {
+		upperBound = (i + 1) * p.lineLength
+		if upperBound > len(v) {
+			upperBound = len(v)
+		}
+		p.writeIndent(0)
+		p.WriteString(v[i*p.lineLength : upperBound])
+	}
+
+	p.closeTag(n)
 }
 
 func (p *xmlPlistGenerator) writeDictionary(dict *cfDictionary) {
@@ -169,8 +192,9 @@ func (p *xmlPlistGenerator) writeIndent(delta int) {
 	}
 }
 
-func (p *xmlPlistGenerator) Indent(i string) {
+func (p *xmlPlistGenerator) Indent(i string, ll int) {
 	p.indent = i
+	p.lineLength = ll
 }
 
 func newXMLPlistGenerator(w io.Writer) *xmlPlistGenerator {

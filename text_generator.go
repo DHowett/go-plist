@@ -202,7 +202,8 @@ func (p *textPlistGenerator) writePlistValue(pval cfValue) {
 	}
 }
 
-func (p *textPlistGenerator) Indent(i string) {
+func (p *textPlistGenerator) Indent(i string, ll int) {
+	// ignore the line length for this format
 	p.indent = i
 	if i == "" {
 		p.dictKvDelimiter = []byte(`=`)

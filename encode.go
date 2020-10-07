@@ -10,7 +10,7 @@ import (
 
 type generator interface {
 	generateDocument(cfValue)
-	Indent(string)
+	Indent(string, int)
 }
 
 // An Encoder writes a property list to an output stream.
@@ -18,7 +18,8 @@ type Encoder struct {
 	writer io.Writer
 	format int
 
-	indent string
+	indent     string
+	lineLength int
 }
 
 // Encode writes the property list encoding of v to the stream.
@@ -46,7 +47,7 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 	case OpenStepFormat, GNUStepFormat:
 		g = newTextPlistGenerator(p.writer, p.format)
 	}
-	g.Indent(p.indent)
+	g.Indent(p.indent, p.lineLength)
 	g.generateDocument(pval)
 	return
 }
@@ -55,6 +56,11 @@ func (p *Encoder) Encode(v interface{}) (err error) {
 // Each element begins on a new line and is preceded by one or more copies of indent according to its nesting depth.
 func (p *Encoder) Indent(indent string) {
 	p.indent = indent
+}
+
+// LineLength turns on maximum LineLength for data elements in the XMLFormat
+func (p *Encoder) LineLength(lineLength int) {
+	p.lineLength = lineLength
 }
 
 // NewEncoder returns an Encoder that writes an XML property list to w.
