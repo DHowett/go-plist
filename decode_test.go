@@ -93,6 +93,7 @@ func TestIllegalDecode(t *testing.T) {
 		{"<array><integer>0</integer></array>", &b},
 		{"<dict><key>a</key><integer>0</integer></dict>", &b},
 		{"<array><true/><true/><true/></array>", &[1]int{1}},
+		{"<data>SGVsbG8=</data>", &[3]byte{}},
 	}
 
 	for _, plist := range plists {
