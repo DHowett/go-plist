@@ -30,3 +30,13 @@ func BenchmarkInterfaceUnmarshal(b *testing.B) {
 		d.unmarshal(plistValueTree, reflect.ValueOf(&xval))
 	}
 }
+
+func BenchmarkLargeArrayUnmarshal(b *testing.B) {
+	var xval [1024]byte
+	pval := cfData(make([]byte, 1024))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		d := &Decoder{}
+		d.unmarshal(pval, reflect.ValueOf(&xval))
+	}
+}

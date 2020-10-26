@@ -188,11 +188,8 @@ func (p *Decoder) unmarshal(pval cfValue, val reflect.Value) {
 			if val.Len() < len(b) {
 				panic(fmt.Errorf("plist: attempted to unmarshal %d bytes into a byte array of size %d", len(b), val.Len()))
 			}
-
-			// slow path -- arrays don't support .SetBytes
-			for i, v := range b {
-				val.Index(i).Set(reflect.ValueOf(v))
-			}
+			sval := reflect.ValueOf(b)
+			reflect.Copy(val, sval)
 		}
 	case cfUID:
 		if val.Type() == uidType {
