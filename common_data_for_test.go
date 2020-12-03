@@ -160,7 +160,7 @@ var tests = []TestData{
 		},
 	},
 	{
-		Name:  "String containing aposthrope",
+		Name:  "String containing apostrophe",
 		Value: "'",
 		Documents: map[int][]byte{
 			OpenStepFormat: []byte(`"'"`),
