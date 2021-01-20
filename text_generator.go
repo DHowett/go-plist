@@ -21,7 +21,7 @@ type textPlistGenerator struct {
 
 var (
 	textPlistTimeLayout = "2006-01-02 15:04:05 -0700"
-	padding             = "0000"
+	padding             = "00000"
 )
 
 func (p *textPlistGenerator) generateDocument(pval cfValue) {
