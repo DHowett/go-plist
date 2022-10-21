@@ -71,3 +71,35 @@ func TestInvalidMarshal(t *testing.T) {
 		})
 	}
 }
+
+type Cat struct{}
+
+func (c *Cat) MarshalPlist() (interface{}, error) {
+	return "cat", nil
+}
+
+func TestInterfaceMarshal(t *testing.T) {
+	var c Cat
+	b, err := Marshal(&c, XMLFormat)
+	if err != nil {
+		t.Log(err)
+	} else if len(b) == 0 {
+		t.Log("expect non-zero data")
+	}
+}
+
+func TestInterfaceFieldMarshal(t *testing.T) {
+	type X struct {
+		C interface{} // C's type does not implement Marshaler
+	}
+	x := &X{
+		C: &Cat{}, // C's value implements Marshaler
+	}
+
+	b, err := Marshal(x, XMLFormat)
+	if err != nil {
+		t.Log(err)
+	} else if len(b) == 0 {
+		t.Log("expect non-zero data")
+	}
+}
