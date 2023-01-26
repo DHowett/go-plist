@@ -186,6 +186,20 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 			}
 		}
 		return dict
+	case reflect.Interface, reflect.Ptr:
+		// Attempt to marshal the underlying type of the interface
+		if val.CanInterface() {
+			if inter := val.Interface(); inter != nil {
+				// Pointer to interface
+				interptr := reflect.New(reflect.TypeOf(inter))
+				// Elem requires an Interface or Pointer
+				if elem := interptr.Elem(); elem.IsValid() && elem.CanSet() {
+					elem.Set(reflect.ValueOf(inter))
+					return p.marshal(reflect.Indirect(interptr))
+				}
+			}
+		}
+		panic(&unknownTypeError{typ})
 	default:
 		panic(&unknownTypeError{typ})
 	}
