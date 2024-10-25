@@ -53,7 +53,7 @@ func TestCustomDateUnmarshal(t *testing.T) {
 </plist>`
 
 	var custom CustomDate
-	if _, err := plist.Unmarshal([]byte(input), &custom); err != nil {
+	if _, err := Unmarshal([]byte(input), &custom); err != nil {
 		t.Error(err)
 	}
 }
