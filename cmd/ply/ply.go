@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/jessevdk/go-flags"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v3"
 	"howett.net/plist"
 )
 
