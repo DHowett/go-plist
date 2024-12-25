@@ -91,6 +91,13 @@ func (p *Encoder) marshalTime(val reflect.Value) cfValue {
 	return cfDate(time)
 }
 
+func innermostValue(val reflect.Value) reflect.Value {
+	for val.Kind() == reflect.Ptr || (val.Kind() == reflect.Interface && val.NumMethod() == 0) {
+		val = val.Elem()
+	}
+	return val
+}
+
 func (p *Encoder) marshal(val reflect.Value) cfValue {
 	if !val.IsValid() {
 		return nil
@@ -105,7 +112,7 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 		return p.marshalTime(val)
 	}
 	if val.Kind() == reflect.Ptr || (val.Kind() == reflect.Interface && val.NumMethod() == 0) {
-		ival := val.Elem()
+		ival := innermostValue(val)
 		if ival.IsValid() && ival.Type() == timeType {
 			return p.marshalTime(ival)
 		}

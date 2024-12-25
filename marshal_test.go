@@ -103,3 +103,26 @@ func TestInterfaceFieldMarshal(t *testing.T) {
 		t.Log("expect non-zero data")
 	}
 }
+
+func TestMarshalInterfaceFieldPtrTime(t *testing.T) {
+	type X struct {
+		C interface{} // C's type is unknown
+	}
+
+	var sentinelTime = time.Date(2013, 11, 27, 0, 34, 0, 0, time.UTC)
+	x := &X{
+		C: &sentinelTime,
+	}
+
+	e := &Encoder{}
+	rval := reflect.ValueOf(x)
+	cf := e.marshal(rval)
+
+	if dict, ok := cf.(*cfDictionary); ok {
+		if _, ok := dict.values[0].(cfDate); !ok {
+			t.Error("inner value is not a cfDate")
+		}
+	} else {
+		t.Error("failed to marshal toplevel dictionary (?)")
+	}
+}
