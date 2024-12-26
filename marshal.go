@@ -124,9 +124,7 @@ func (p *Encoder) marshal(val reflect.Value) cfValue {
 	}
 
 	// Descend into pointers or interfaces
-	if val.Kind() == reflect.Ptr || (val.Kind() == reflect.Interface && val.NumMethod() == 0) {
-		val = val.Elem()
-	}
+	val = innermostValue(val)
 
 	// We got this far and still may have an invalid anything or nil ptr/interface
 	if !val.IsValid() || ((val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface) && val.IsNil()) {

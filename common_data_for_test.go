@@ -972,7 +972,25 @@ var tests = []TestData{
 		},
 		SkipEncode: map[int]bool{GNUStepFormat: true},
 	},
+	{
+		Name: "A struct containing a pointer to a pointer (etc)",
+		Value: &StructWithDeeplyNestedPointer{
+			Intppp: nestedPtrIntValppp,
+		},
+		Documents: map[int][]byte{
+			GNUStepFormat: []byte(`{Intppp=<*I3>;}`),
+		},
+	},
 }
+
+type StructWithDeeplyNestedPointer struct {
+	Intppp ***int
+}
+
+var nestedPtrIntVal int = 3
+var nestedPtrIntValp = &nestedPtrIntVal
+var nestedPtrIntValpp = &nestedPtrIntValp
+var nestedPtrIntValppp = &nestedPtrIntValpp
 
 type EverythingTestData struct {
 	Intarray []uint64  `plist:"intarray"`

@@ -95,7 +95,7 @@ func (p *Decoder) unmarshal(pval cfValue, val reflect.Value) {
 		return
 	}
 
-	if val.Kind() == reflect.Ptr {
+	for val.Kind() == reflect.Ptr {
 		if val.IsNil() {
 			val.Set(reflect.New(val.Type().Elem()))
 		}
