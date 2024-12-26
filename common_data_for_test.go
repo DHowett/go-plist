@@ -981,6 +981,83 @@ var tests = []TestData{
 			GNUStepFormat: []byte(`{Intppp=<*I3>;}`),
 		},
 	},
+	{
+		Name: "Embedded fields within a nil omitempty member",
+		Value: struct {
+			*InnerStructWithSimpleField `plist:",omitempty"`
+		}{},
+		Documents: map[int][]byte{
+			GNUStepFormat: []byte(`{}`),
+		},
+		// TODO: right now we populate the inner struct even though we do not fill it
+		SkipDecode: map[int]bool{GNUStepFormat: true},
+	},
+	{
+		Name: "Embedded fields within a nil omitempty member, telescoping",
+		Value: struct {
+			O                      string `plist:",omitempty"`
+			*InnerStructEmbedNest1 `plist:",omitempty"`
+		}{O: "sentinel"},
+		Documents: map[int][]byte{
+			GNUStepFormat: []byte(`{O=sentinel;}`),
+		},
+		// TODO: right now we populate the inner struct even though we do not fill it
+		SkipDecode: map[int]bool{GNUStepFormat: true},
+	},
+	{
+		Name: "Embedded fields within a nil omitempty member, telescoping, 1",
+		Value: struct {
+			O                      string `plist:",omitempty"`
+			*InnerStructEmbedNest1 `plist:",omitempty"`
+		}{
+			O:                     "sentinel",
+			InnerStructEmbedNest1: &InnerStructEmbedNest1{One: "one"},
+		},
+		Documents: map[int][]byte{
+			GNUStepFormat: []byte(`{O=sentinel;One=one;}`),
+		},
+		// TODO: right now we populate the inner struct even though we do not fill it
+		SkipDecode: map[int]bool{GNUStepFormat: true},
+	},
+	{
+		Name: "Embedded fields within a nil omitempty member, telescoping, 2",
+		Value: struct {
+			O                      string `plist:",omitempty"`
+			*InnerStructEmbedNest1 `plist:",omitempty"`
+		}{
+			O: "sentinel",
+			InnerStructEmbedNest1: &InnerStructEmbedNest1{
+				One: "one",
+				InnerStructEmbedNest2: &InnerStructEmbedNest2{
+					Two: "two",
+				},
+			},
+		},
+		Documents: map[int][]byte{
+			GNUStepFormat: []byte(`{O=sentinel;One=one;Two=two;}`),
+		},
+		// TODO: right now we populate the inner struct even though we do not fill it
+		SkipDecode: map[int]bool{GNUStepFormat: true},
+	},
+	{
+		Name: "Embedded fields within a nil omitempty member, telescoping, non-nil-but-non-empty",
+		Value: struct {
+			O                      string `plist:",omitempty"`
+			*InnerStructEmbedNest1 `plist:",omitempty"`
+		}{
+			O: "sentinel",
+			InnerStructEmbedNest1: &InnerStructEmbedNest1{
+				InnerStructEmbedNest2: &InnerStructEmbedNest2{
+					InnerStructEmbedNest3: &InnerStructEmbedNest3{},
+				},
+			},
+		},
+		Documents: map[int][]byte{
+			GNUStepFormat: []byte(`{O=sentinel;One="";Three="";Two="";}`),
+		},
+		// TODO: right now we populate the inner struct even though we do not fill it
+		SkipDecode: map[int]bool{GNUStepFormat: true},
+	},
 }
 
 type StructWithDeeplyNestedPointer struct {
@@ -991,6 +1068,25 @@ var nestedPtrIntVal int = 3
 var nestedPtrIntValp = &nestedPtrIntVal
 var nestedPtrIntValpp = &nestedPtrIntValp
 var nestedPtrIntValppp = &nestedPtrIntValpp
+
+type InnerStructWithSimpleField struct {
+	S string
+}
+
+type InnerStructEmbedNest1 struct {
+	One                    string
+	*InnerStructEmbedNest2 `plist:",omitempty"`
+}
+
+type InnerStructEmbedNest2 struct {
+	Two                    string
+	*InnerStructEmbedNest3 `plist:",omitempty"`
+}
+
+type InnerStructEmbedNest3 struct {
+	Three                       string
+	*InnerStructWithSimpleField `plist:",omitempty"`
+}
 
 type EverythingTestData struct {
 	Intarray []uint64  `plist:"intarray"`
