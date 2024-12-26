@@ -8,12 +8,13 @@ import (
 )
 
 type TestData struct {
-	Name        string
-	Value       interface{}
-	DecodeValue interface{} // used when the document cannot encode parts of Value
-	Documents   map[int][]byte
-	SkipDecode  map[int]bool
-	SkipEncode  map[int]bool
+	Name             string
+	Value            interface{}
+	DecodeValue      interface{} // used when the document cannot encode parts of Value
+	TestDecodedValue func(interface{}) error
+	Documents        map[int][]byte
+	SkipDecode       map[int]bool
+	SkipEncode       map[int]bool
 }
 
 type SparseBundleHeader struct {

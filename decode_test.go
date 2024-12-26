@@ -126,11 +126,11 @@ func TestDecode(t *testing.T) {
 			expVal = expReflect.Interface()
 
 			results := make(map[int]interface{})
-			for fmt, doc := range test.Documents {
-				if test.SkipDecode[fmt] {
+			for format, doc := range test.Documents {
+				if test.SkipDecode[format] {
 					return
 				}
-				subtest(t, FormatNames[fmt], func(t *testing.T) {
+				subtest(t, FormatNames[format], func(t *testing.T) {
 					val := reflect.New(expReflect.Type()).Interface()
 					_, err := Unmarshal(doc, val)
 					if err != nil {
@@ -144,9 +144,18 @@ func TestDecode(t *testing.T) {
 						val = valReflect.Interface()
 					}
 
-					results[fmt] = val
-					if !reflect.DeepEqual(expVal, val) {
-						t.Logf("Expected: %#v\n", expVal)
+					results[format] = val
+					var passErr error
+					if test.TestDecodedValue == nil {
+						if !reflect.DeepEqual(expVal, val) {
+							passErr = fmt.Errorf("Expected: %#v", expVal)
+						}
+					} else {
+						passErr = test.TestDecodedValue(val)
+					}
+
+					if passErr != nil {
+						t.Logf("%v\n", passErr)
 						t.Logf("Received: %#v\n", val)
 						t.Fail()
 					}
