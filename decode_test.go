@@ -79,6 +79,7 @@ func TestIllegalLaxDecode(t *testing.T) {
 
 func TestIllegalDecode(t *testing.T) {
 	i := int64(0)
+	m := make(map[string]string)
 	b := false
 	plists := []struct {
 		pl string
@@ -94,6 +95,8 @@ func TestIllegalDecode(t *testing.T) {
 		{"<dict><key>a</key><integer>0</integer></dict>", &b},
 		{"<array><true/><true/><true/></array>", &[1]int{1}},
 		{"<data>SGVsbG8=</data>", &[3]byte{}},
+		{"<array><string>a</string><key>123</key></array>", &m},
+		{"<array><key>123</key><string>a</string><string>b</string></array>", &m},
 	}
 
 	for _, plist := range plists {
@@ -104,6 +107,22 @@ func TestIllegalDecode(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error, received nothing.")
 		}
+	}
+}
+
+func TestSparseArrayDecode(t *testing.T) {
+	buf := bytes.NewReader([]byte("<array><key>100</key><string>a</string><key>200</key><string>b</string></array>"))
+	decoder := NewDecoder(buf)
+	var val map[string]string
+	err := decoder.Decode(&val)
+	if err != nil {
+		t.Error(err)
+	}
+	if want, got := "a", val["100"]; want != got {
+		t.Errorf("Expected %q at key 100, got %q", want, got)
+	}
+	if want, got := "b", val["200"]; want != got {
+		t.Errorf("Expected %q at key 200, got %q", want, got)
 	}
 }
 
