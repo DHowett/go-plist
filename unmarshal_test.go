@@ -40,3 +40,20 @@ func BenchmarkLargeArrayUnmarshal(b *testing.B) {
 		d.unmarshal(pval, reflect.ValueOf(&xval))
 	}
 }
+
+type CustomDate struct{}
+
+func (cd *CustomDate) UnmarshalPlist(unmarshal func(interface{}) error) error { return nil }
+
+func TestCustomDateUnmarshal(t *testing.T) {
+	input := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <date>2003-02-03T09:00:00.00Z</date>
+</plist>`
+
+	var custom CustomDate
+	if _, err := Unmarshal([]byte(input), &custom); err != nil {
+		t.Error(err)
+	}
+}

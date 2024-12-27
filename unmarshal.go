@@ -110,6 +110,11 @@ func (p *Decoder) unmarshal(pval cfValue, val reflect.Value) {
 
 	incompatibleTypeError := &incompatibleDecodeTypeError{val.Type(), pval.typeName()}
 
+	if receiver, can := implementsInterface(val, plistUnmarshalerType); can {
+		p.unmarshalPlistInterface(pval, receiver.(Unmarshaler))
+		return
+	}
+
 	// time.Time implements TextMarshaler, but we need to parse it as RFC3339
 	if date, ok := pval.(cfDate); ok {
 		if val.Type() == timeType {
@@ -117,11 +122,6 @@ func (p *Decoder) unmarshal(pval cfValue, val reflect.Value) {
 			return
 		}
 		panic(incompatibleTypeError)
-	}
-
-	if receiver, can := implementsInterface(val, plistUnmarshalerType); can {
-		p.unmarshalPlistInterface(pval, receiver.(Unmarshaler))
-		return
 	}
 
 	if val.Type() != timeType {
