@@ -989,8 +989,6 @@ var tests = []TestData{
 		Documents: map[int][]byte{
 			GNUStepFormat: []byte(`{}`),
 		},
-		// TODO: right now we populate the inner struct even though we do not fill it
-		SkipDecode: map[int]bool{GNUStepFormat: true},
 	},
 	{
 		Name: "Embedded fields within a nil omitempty member, telescoping",
@@ -1001,8 +999,6 @@ var tests = []TestData{
 		Documents: map[int][]byte{
 			GNUStepFormat: []byte(`{O=sentinel;}`),
 		},
-		// TODO: right now we populate the inner struct even though we do not fill it
-		SkipDecode: map[int]bool{GNUStepFormat: true},
 	},
 	{
 		Name: "Embedded fields within a nil omitempty member, telescoping, 1",
@@ -1016,8 +1012,6 @@ var tests = []TestData{
 		Documents: map[int][]byte{
 			GNUStepFormat: []byte(`{O=sentinel;One=one;}`),
 		},
-		// TODO: right now we populate the inner struct even though we do not fill it
-		SkipDecode: map[int]bool{GNUStepFormat: true},
 	},
 	{
 		Name: "Embedded fields within a nil omitempty member, telescoping, 2",
@@ -1036,8 +1030,6 @@ var tests = []TestData{
 		Documents: map[int][]byte{
 			GNUStepFormat: []byte(`{O=sentinel;One=one;Two=two;}`),
 		},
-		// TODO: right now we populate the inner struct even though we do not fill it
-		SkipDecode: map[int]bool{GNUStepFormat: true},
 	},
 	{
 		Name: "Embedded fields within a nil omitempty member, telescoping, non-nil-but-non-empty",
@@ -1055,8 +1047,6 @@ var tests = []TestData{
 		Documents: map[int][]byte{
 			GNUStepFormat: []byte(`{O=sentinel;One="";Three="";Two="";}`),
 		},
-		// TODO: right now we populate the inner struct even though we do not fill it
-		SkipDecode: map[int]bool{GNUStepFormat: true},
 	},
 }
 

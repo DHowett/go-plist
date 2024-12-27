@@ -260,7 +260,9 @@ func (p *Decoder) unmarshalDictionary(dict *cfDictionary, val reflect.Value) {
 		}
 
 		for _, finfo := range tinfo.fields {
-			p.unmarshal(entries[finfo.name], finfo.valueForWriting(val))
+			if ent, ok := entries[finfo.name]; ok {
+				p.unmarshal(ent, finfo.valueForWriting(val))
+			}
 		}
 	case reflect.Map:
 		if val.IsNil() {
