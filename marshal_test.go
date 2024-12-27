@@ -126,3 +126,33 @@ func TestMarshalInterfaceFieldPtrTime(t *testing.T) {
 		t.Error("failed to marshal toplevel dictionary (?)")
 	}
 }
+
+type Dog struct {
+	Name string
+}
+
+type Animal interface{}
+
+func TestInterfaceSliceMarshal(t *testing.T) {
+	x := make([]Animal, 0)
+	x = append(x, &Dog{Name: "dog"})
+
+	b, err := Marshal(x, XMLFormat)
+	if err != nil {
+		t.Error(err)
+	} else if len(b) == 0 {
+		t.Error("expect non-zero data")
+	}
+}
+
+func TestInterfaceGeneralSliceMarshal(t *testing.T) {
+	x := make([]interface{}, 0) // accept any type
+	x = append(x, &Dog{Name: "dog"}, "a string", 1, true)
+
+	b, err := Marshal(x, XMLFormat)
+	if err != nil {
+		t.Error(err)
+	} else if len(b) == 0 {
+		t.Error("expect non-zero data")
+	}
+}
