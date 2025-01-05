@@ -21,6 +21,7 @@ var (
 	plistUnmarshalerType = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
 	textUnmarshalerType  = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 	uidType              = reflect.TypeOf(UID(0))
+	stringType           = reflect.TypeOf("")
 )
 
 func isEmptyInterface(v reflect.Value) bool {
@@ -267,6 +268,10 @@ func (p *Decoder) unmarshalDictionary(dict *cfDictionary, val reflect.Value) {
 	case reflect.Map:
 		if val.IsNil() {
 			val.Set(reflect.MakeMap(typ))
+		}
+
+		if !stringType.ConvertibleTo(val.Type().Key()) {
+			panic(fmt.Errorf("plist: attempt to decode dictionary into map with non-string key type `%v'", val.Type().Key()))
 		}
 
 		for i, k := range dict.keys {

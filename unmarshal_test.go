@@ -57,3 +57,60 @@ func TestCustomDateUnmarshal(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestInvalidMapKeyTypeUnmarshal(t *testing.T) {
+	m := make(map[int]string)
+	dict := &cfDictionary{
+		keys: []string{"1", "2"},
+		values: []cfValue{
+			cfString("first"),
+			cfString("second"),
+		},
+	}
+
+	var caught bool
+	{
+		defer func() {
+			if e := recover(); e != nil {
+				t.Log("error:", e)
+				caught = true
+			}
+		}()
+
+		d := &Decoder{}
+		d.unmarshalDictionary(dict, reflect.ValueOf(m))
+	}
+
+	if !caught {
+		t.Fail()
+	}
+}
+
+func TestValidButAliasedMapKeyTypeUnmarshal(t *testing.T) {
+	type sortaString string
+	m := make(map[sortaString]string)
+	dict := &cfDictionary{
+		keys: []string{"1", "2"},
+		values: []cfValue{
+			cfString("first"),
+			cfString("second"),
+		},
+	}
+
+	var caught bool
+	{
+		defer func() {
+			if e := recover(); e != nil {
+				t.Error("error:", e)
+				caught = true
+			}
+		}()
+
+		d := &Decoder{}
+		d.unmarshalDictionary(dict, reflect.ValueOf(m))
+	}
+
+	if caught {
+		t.Fail()
+	}
+}
