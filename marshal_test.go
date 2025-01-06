@@ -156,3 +156,132 @@ func TestInterfaceGeneralSliceMarshal(t *testing.T) {
 		t.Error("expect non-zero data")
 	}
 }
+
+type CustomMarshaler struct {
+	value interface{}
+}
+
+var _ Marshaler = (*CustomMarshaler)(nil)
+
+func (c *CustomMarshaler) MarshalPlist() (interface{}, error) {
+	// There are valid cases for testing *(nil).MarshalPlist, so don't blow up here.
+	if c == nil {
+		return nil, nil
+	}
+	return c.value, nil
+}
+
+func TestPlistMarshalerNil(t *testing.T) {
+	// Direct non-nil value encodes
+	subtest(t, "string", func(t *testing.T) {
+		c := &CustomMarshaler{value: "hello world"}
+		b, err := Marshal(c, XMLFormat)
+		if err != nil {
+			t.Error(err)
+		}
+		if len(b) == 0 {
+			t.Error("expect non-nil")
+		}
+
+		t.Log(string(b))
+		// <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+		// <plist version="1.0"><string>hello world</string></plist>
+	})
+
+	// Direct nil value correctly returns an error
+	subtest(t, "nil", func(t *testing.T) {
+		c := &CustomMarshaler{}
+		b, err := Marshal(c, XMLFormat)
+		if err == nil {
+			t.Error("expect error")
+		} else {
+			t.Log(err)
+		}
+		if len(b) != 0 {
+			t.Error("expect nil")
+		}
+	})
+
+	// Field nil value with omitempty correctly omitted
+	subtest(t, "ptr-omitempty", func(t *testing.T) {
+		type Structure struct {
+			C *CustomMarshaler `plist:"C,omitempty"`
+		}
+		s := &Structure{}
+		b, err := Marshal(s, XMLFormat)
+		if err != nil {
+			t.Error(err)
+		}
+		if len(b) == 0 {
+			t.Error("expect non-nil")
+		}
+		t.Log(string(b))
+
+		// <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+		// <plist version="1.0"><dict></dict></plist>
+	})
+
+	// Non-nil field returning marshaler nil value with omitempty should be omitted
+	subtest(t, "omitempty", func(t *testing.T) {
+		type Structure struct {
+			C CustomMarshaler `plist:"C,omitempty"`
+		}
+		s := &Structure{}
+		b, err := Marshal(s, XMLFormat)
+		if err != nil {
+			t.Error(err)
+		}
+		if len(b) == 0 {
+			t.Error("expect non-nil")
+		}
+		t.Log(string(b))
+
+		// Unmarshal to prove malformed encoding
+		var dst Structure
+		if _, err := Unmarshal(b, &dst); err != nil {
+			t.Error(err) // plist: error parsing XML property list: missing value in dictionary
+		}
+
+		// Get key without value and no error:
+		// <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+		// <plist version="1.0"><dict><key>C</key></dict></plist>
+
+		// Expect:
+		// <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+		// <plist version="1.0"><dict></dict></plist>
+	})
+
+	// Field nil value without omitempty correctly emits error
+	subtest(t, "ptr", func(t *testing.T) {
+		type Structure struct {
+			C *CustomMarshaler
+		}
+		s := &Structure{}
+		b, err := Marshal(s, XMLFormat)
+		if err == nil {
+			t.Error("expect error")
+		} else {
+			t.Log(err)
+		}
+		if len(b) != 0 {
+			t.Error("expect nil")
+		}
+	})
+
+	// Non-nil field returning marshaler nil value without omitempty should emit an error
+	subtest(t, "direct-nil-member", func(t *testing.T) {
+		type Structure struct {
+			C CustomMarshaler
+		}
+		s := &Structure{}
+		b, err := Marshal(s, XMLFormat)
+		if err == nil {
+			t.Error("expect error")
+		} else {
+			t.Log(err)
+		}
+		if len(b) != 0 {
+			t.Error("expect nil")
+		}
+	})
+}

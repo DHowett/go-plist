@@ -201,10 +201,12 @@ func (finfo *fieldInfo) valueForWriting(v reflect.Value) reflect.Value {
 	return v
 }
 
-// valueForWriting returns v's field value corresponding to finfo.
-// It's equivalent to v.FieldByIndex(finfo.idx), but bails out if one of the
-// indices indicated that it should be omitted if it's empty and it is empty.
-func (finfo *fieldInfo) value(v reflect.Value) reflect.Value {
+// value returns v's field value corresponding to finfo, as well as whether it
+// can be omitted if empty It's equivalent to v.FieldByIndex(finfo.idx), but
+// bails out if one of the indices indicated that it should be omitted if it's
+// empty and it is empty.
+func (finfo *fieldInfo) value(v reflect.Value) (reflect.Value, bool) {
+	lastOmitIfEmpty := false
 	for i, x := range finfo.idx {
 		t := v.Type()
 		if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
@@ -213,9 +215,10 @@ func (finfo *fieldInfo) value(v reflect.Value) reflect.Value {
 
 		v = v.Field(x)
 
-		if (finfo.omitEmptyDepthMap&(1<<uint(i))) != 0 && isEmptyValue(v) {
-			return reflect.Value{}
+		lastOmitIfEmpty = (finfo.omitEmptyDepthMap & (1 << uint(i))) != 0
+		if lastOmitIfEmpty && isEmptyValue(v) {
+			return reflect.Value{}, lastOmitIfEmpty
 		}
 	}
-	return v
+	return v, lastOmitIfEmpty
 }

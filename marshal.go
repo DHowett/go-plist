@@ -2,6 +2,7 @@ package plist
 
 import (
 	"encoding"
+	"fmt"
 	"reflect"
 	"time"
 )
@@ -57,10 +58,19 @@ func (p *Encoder) marshalStruct(typ reflect.Type, val reflect.Value) cfValue {
 		values: make([]cfValue, 0, len(tinfo.fields)),
 	}
 	for _, finfo := range tinfo.fields {
-		value := finfo.value(val)
+		value, omitIfEmpty := finfo.value(val)
 		if !value.IsValid() {
 			continue
 		}
+
+		nv := p.marshal(value)
+		if nv == nil {
+			if !omitIfEmpty {
+				panic(fmt.Errorf("plist: marshaled type `%v` produced no value, but omitifempty was not specified on `%v.%v`", value.Type(), typ, finfo.name))
+			}
+			continue
+		}
+
 		dict.keys = append(dict.keys, finfo.name)
 		dict.values = append(dict.values, p.marshal(value))
 	}
