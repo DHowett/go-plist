@@ -218,10 +218,10 @@ func (p *Decoder) unmarshalArray(a *cfArray, val reflect.Value) {
 		// Slice of element values.
 		// Grow slice.
 		cnt := len(a.values) + val.Len()
-		if cnt >= val.Cap() {
-			ncap := 2 * cnt
-			if ncap < 4 {
-				ncap = 4
+		if cnt > val.Cap() {
+			ncap := val.Cap()
+			for ncap < cnt {
+				ncap = growSliceCap(ncap)
 			}
 			new := reflect.MakeSlice(val.Type(), val.Len(), ncap)
 			reflect.Copy(new, val)
@@ -242,7 +242,16 @@ func (p *Decoder) unmarshalArray(a *cfArray, val reflect.Value) {
 		p.unmarshal(sval, val.Index(n))
 		n++
 	}
-	return
+}
+
+func growSliceCap(cap int) int {
+	if cap == 0 {
+		return 4
+	} else if cap < 1024 {
+		return cap * 2 // Double for small slices
+	} else {
+		return cap + cap/4 // Increase by 25% for large slices
+	}
 }
 
 func (p *Decoder) unmarshalDictionary(dict *cfDictionary, val reflect.Value) {
