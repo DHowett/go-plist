@@ -26,6 +26,8 @@ const (
 	JSONFormat
 	YAMLFormat
 	RawFormat
+
+	version string = "1.0.0"
 )
 
 var nameFormatMap = map[string]int{
@@ -55,6 +57,7 @@ var opts struct {
 	Keypath string `short:"k" long:"key" description:"A keypath!" default:"/" value-name:"<keypath>"`
 	Output  string `short:"o" long:"out" description:"output filename" default:"" value-name:"<filename>"`
 	Indent  bool   `short:"I" long:"indent" description:"indent indentable output formats (xml, openstep, gnustep, json)"`
+	Version bool   `short:"v" long:"version" description:"print installed version and exit"`
 }
 
 func main() {
@@ -63,6 +66,11 @@ func main() {
 	if err != nil {
 		// flags.Default implies flags.PrintError; there's no reason to print it here
 		return
+	}
+
+	if opts.Version {
+		fmt.Fprintf(os.Stderr, "%s, v%s\n", os.Args[0], version)
+		os.Exit(0)
 	}
 
 	if opts.Convert == "list" {
