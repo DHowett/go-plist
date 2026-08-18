@@ -266,6 +266,14 @@ func (p *bplistParser) countForTagAtOffset(off offset) (uint64, offset) {
 	cnt := uint64(tag & 0x0F)
 	if cnt == 0xF {
 		cnt, _, off = p.parseIntegerAtOffset(off + 1)
+		// An object's element or byte count can never exceed the number of
+		// bytes that precede the offset table. Reject oversized counts here so
+		// that a malformed document can't overflow the length arithmetic in
+		// our callers (start+len, len*2, count*objectRefSize), which would
+		// otherwise slip past their bounds checks and panic in make/slicing.
+		if cnt > p.trailer.OffsetTableOffset {
+			panic(fmt.Errorf("object@0x%x has an invalid length (%v, max is %v)", off, cnt, p.trailer.OffsetTableOffset))
+		}
 		return cnt, off
 	}
 	return cnt, off + 1
