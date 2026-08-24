@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -181,7 +182,15 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 		return dict.maybeUID(false)
 	case "array":
 		p.ntags++
-		values := make([]cfValue, 0, 10)
+		var key *int
+		// Maintain a list of keys: either seen explicitly, or implicitly from
+		// ordering in an array without keys.
+		keys := make([]int, 0, 32)
+		// Two flags to make note of what kind of array we have encountered so
+		// far. Mixed type is currently not allowed.
+		sawExplicitKey := false
+		sawImplicitValue := false
+		values := make([]cfValue, 0, 32)
 		for {
 			token, err := p.xmlDecoder.Token()
 			if err != nil {
@@ -193,9 +202,45 @@ func (p *xmlPlistParser) parseXMLElement(element xml.StartElement) cfValue {
 			}
 
 			if el, ok := token.(xml.StartElement); ok {
-				values = append(values, p.parseXMLElement(el))
+				if el.Name.Local == "key" {
+					sawExplicitKey = true
+					if sawImplicitValue {
+						panic(errors.New("mixed type array"))
+					}
+					if key != nil {
+						panic(errors.New("double key in array"))
+					}
+					var k int
+					p.xmlDecoder.DecodeElement(&k, &el)
+					key = &k
+				} else {
+					if key != nil {
+						keys = append(keys, *key)
+						key = nil
+					} else {
+						sawImplicitValue = true
+						if sawExplicitKey {
+							panic(errors.New("mixed type array"))
+						}
+						keys = append(keys, len(values))
+					}
+					values = append(values, p.parseXMLElement(el))
+				}
 			}
 		}
+		// If the array keys are non-continuous, return a dictionary.
+		for i := 0; i < len(keys); i++ {
+			if keys[i] != i {
+				// ... but first convert the keys into strings.
+				keys2 := make([]string, len(keys))
+				for j, k := range keys {
+					keys2[j] = strconv.Itoa(k)
+				}
+				dict := &cfDictionary{keys: keys2, values: values}
+				return dict.maybeUID(false)
+			}
+		}
+		// If the array is indeed continuous, return it as an array.
 		return &cfArray{values}
 	}
 	err := fmt.Errorf("encountered unknown element %s", element.Name.Local)
