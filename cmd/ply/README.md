@@ -17,6 +17,7 @@ Application Options:
   -k, --key=<keypath>       A keypath! (/)
   -o, --out=<filename>      output filename
   -I, --indent              indent indentable output formats (xml, openstep, gnustep, json)
+  -v, --version             print installed version and exit
 
 Help Options:
   -h, --help                Show this help message
