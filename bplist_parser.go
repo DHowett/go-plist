@@ -22,7 +22,7 @@ type offset uint64
 type bplistParser struct {
 	buffer []byte
 
-	reader        io.ReadSeeker
+	reader        io.Reader
 	version       int
 	objects       []cfValue // object ID to object
 	trailer       bplistTrailer
@@ -359,6 +359,6 @@ func (p *bplistParser) parseArrayAtOffset(off offset) *cfArray {
 	return &cfArray{p.parseObjectListAtOffset(start, cnt)}
 }
 
-func newBplistParser(r io.ReadSeeker) *bplistParser {
+func newBplistParser(r io.Reader) *bplistParser {
 	return &bplistParser{reader: r}
 }

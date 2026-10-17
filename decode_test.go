@@ -3,6 +3,7 @@ package plist
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"reflect"
 	"testing"
 )
@@ -107,6 +108,18 @@ func TestIllegalDecode(t *testing.T) {
 	}
 }
 
+type notSeekable struct {
+	io.Reader
+}
+
+func unseekableUnmarshal(data []byte, v interface{}) (format int, err error) {
+	r := notSeekable{bytes.NewReader(data)}
+	dec := NewDecoder(r)
+	err = dec.Decode(v)
+	format = dec.Format
+	return
+}
+
 func TestDecode(t *testing.T) {
 	for _, test := range tests {
 		subtest(t, test.Name, func(t *testing.T) {
@@ -130,9 +143,9 @@ func TestDecode(t *testing.T) {
 				if test.SkipDecode[fmt] {
 					return
 				}
-				subtest(t, FormatNames[fmt], func(t *testing.T) {
+				testFunc := func(t *testing.T, unmarshaler func([]byte, interface{}) (int, error)) {
 					val := reflect.New(expReflect.Type()).Interface()
-					_, err := Unmarshal(doc, val)
+					_, err := unmarshaler(doc, val)
 					if err != nil {
 						t.Error(err)
 					}
@@ -150,6 +163,12 @@ func TestDecode(t *testing.T) {
 						t.Logf("Received: %#v\n", val)
 						t.Fail()
 					}
+				}
+				subtest(t, FormatNames[fmt], func(t *testing.T) {
+					testFunc(t, Unmarshal)
+				})
+				subtest(t, FormatNames[fmt]+" Unseekable", func(t *testing.T) {
+					testFunc(t, unseekableUnmarshal)
 				})
 			}
 
@@ -192,13 +211,22 @@ func TestFormatDetection(t *testing.T) {
 	}
 
 	for i, fmttest := range plists {
-		fmt, err := Unmarshal(fmttest.data, nil)
-		if fmt != fmttest.expectedFormat {
-			t.Errorf("plist %d: Wanted %s, received %s.", i, FormatNames[fmttest.expectedFormat], FormatNames[fmt])
+		testFunc := func(t *testing.T, unmarshaler func([]byte, interface{}) (int, error)) {
+			fmt, err := unmarshaler(fmttest.data, nil)
+			if fmt != fmttest.expectedFormat {
+				t.Errorf("plist %d: Wanted %s, received %s.", i, FormatNames[fmttest.expectedFormat], FormatNames[fmt])
+			}
+			if err != nil {
+				t.Logf("plist %d: Error: %v", i, err)
+			}
 		}
-		if err != nil {
-			t.Logf("plist %d: Error: %v", i, err)
-		}
+		name := fmt.Sprintf("%d", i)
+		subtest(t, name, func(t *testing.T) {
+			testFunc(t, Unmarshal)
+		})
+		subtest(t, name+" Unseekable", func(t *testing.T) {
+			testFunc(t, unseekableUnmarshal)
+		})
 	}
 }
 
