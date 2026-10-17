@@ -7,6 +7,67 @@ import (
 	"runtime"
 )
 
+type peekReader struct {
+	io.Reader
+	io.Seeker
+	peeked  []byte
+	peekErr error
+}
+
+func newPeekReader(r io.Reader) *peekReader {
+	s, _ := r.(io.Seeker)
+	return &peekReader{r, s, nil, nil}
+}
+
+func (p *peekReader) Read(b []byte) (n int, err error) {
+	if len(p.peeked) > 0 {
+		// copy manages differing lengths properly
+		n = copy(b, p.peeked)
+		p.peeked = p.peeked[n:]
+		if len(p.peeked) == 0 {
+			// Upon consumption of all peeked bytes, vend the error we got from the parent reader
+			err = p.peekErr
+		}
+		return
+	}
+	return p.Reader.Read(b)
+}
+
+func (p *peekReader) Peek(b []byte) (n int, err error) {
+	n, err = p.Reader.Read(b)
+	if p.Seeker != nil {
+		p.Seeker.Seek(0, 0)
+		return
+		// Do not populate peeked; we can seek instead of replaying bytes
+	}
+	p.peeked = b[:n]
+	p.peekErr = err
+	return
+}
+
+func (p *peekReader) CanSeek() bool {
+	return p.Seeker != nil
+}
+
+func headerMightBeXml(h []byte) bool {
+	if bytes.IndexByte(h, '<') < 0 || bytes.Contains(h, []byte("<*")) {
+		return false
+	}
+	// Any XML property list tags which cannot be confused for
+	// hex-encoded NSData in the OpenStep format
+	// (that is: if they look like hex, we need to check more characters)
+	return bytes.Contains(h, []byte("<?")) ||
+		bytes.Contains(h, []byte("<p")) ||
+		bytes.Contains(h, []byte("<s")) ||
+		bytes.Contains(h, []byte("<i")) ||
+		bytes.Contains(h, []byte("<r")) ||
+		bytes.Contains(h, []byte("<t")) ||
+		bytes.Contains(h, []byte("<di")) ||
+		bytes.Contains(h, []byte("<ar")) ||
+		bytes.Contains(h, []byte("<fal")) ||
+		bytes.Contains(h, []byte("<dat"))
+}
+
 type parser interface {
 	parseDocument() (cfValue, error)
 }
@@ -16,7 +77,7 @@ type Decoder struct {
 	// the format of the most-recently-decoded property list
 	Format int
 
-	reader io.ReadSeeker
+	reader io.Reader
 	lax    bool
 }
 
@@ -33,14 +94,15 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 		}
 	}()
 
-	header := make([]byte, 6)
-	p.reader.Read(header)
-	p.reader.Seek(0, 0)
+	r := newPeekReader(p.reader)
+
+	header := make([]byte, 16)
+	n, _ := r.Peek(header)
 
 	var parser parser
 	var pval cfValue
-	if bytes.Equal(header, []byte("bplist")) {
-		parser = newBplistParser(p.reader)
+	if n >= 6 && bytes.Equal(header[:6], []byte("bplist")) {
+		parser = newBplistParser(r)
 		pval, err = parser.parseDocument()
 		if err != nil {
 			// Had a bplist header, but still got an error: we have to die here.
@@ -48,13 +110,26 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 		}
 		p.Format = BinaryFormat
 	} else {
-		parser = newXMLPlistParser(p.reader)
-		pval, err = parser.parseDocument()
-		if _, ok := err.(invalidPlistError); ok {
-			// Rewind: the XML parser might have exhausted the file.
-			p.reader.Seek(0, 0)
+		tryXml := r.CanSeek()
+		if !tryXml {
+			// more expensive content checks only if we can't seek
+			tryXml = headerMightBeXml(header)
+		}
+
+		if tryXml {
+			parser = newXMLPlistParser(r)
+			pval, err = parser.parseDocument()
+		}
+
+		// got an error parsing xml or didn't try xml
+		if _, ok := err.(invalidPlistError); ok || !tryXml {
+			if r.CanSeek() {
+				// If we can seek after all, try.
+				r.Seeker.Seek(0, 0)
+			}
+
 			// We don't use parser here because we want the textPlistParser type
-			tp := newTextPlistParser(p.reader)
+			tp := newTextPlistParser(r)
 			pval, err = tp.parseDocument()
 			if err != nil {
 				return err
@@ -79,7 +154,7 @@ func (p *Decoder) Decode(v interface{}) (err error) {
 
 // NewDecoder returns a Decoder that reads property list elements from a stream reader, r.
 // NewDecoder requires a Seekable stream for the purposes of file type detection.
-func NewDecoder(r io.ReadSeeker) *Decoder {
+func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{Format: InvalidFormat, reader: r, lax: false}
 }
 
